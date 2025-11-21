@@ -183,9 +183,9 @@ export function NodeDetailPanel() {
                       {edge.source === data.id ? edge.target : edge.source}
                     </span>
                   </div>
-                  {edge.sourceAttr && edge.targetAttr && (
+                  {edge.sourceColumn && edge.targetColumn && (
                     <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      via {edge.sourceAttr} → {edge.targetAttr}
+                      via {edge.sourceColumn} → {edge.targetColumn}
                     </div>
                   )}
                 </div>

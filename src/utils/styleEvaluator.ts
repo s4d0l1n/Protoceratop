@@ -33,8 +33,8 @@ export function evaluateRuleForEdge(
   const attributes: Record<string, string | string[]> = {
     source: edge.source,
     target: edge.target,
-    sourceAttr: edge.sourceAttr || '',
-    targetAttr: edge.targetAttr || '',
+    sourceColumn: edge.sourceColumn || '',
+    targetColumn: edge.targetColumn || '',
     label: edge.label || '',
   }
 

@@ -36,8 +36,7 @@ export function processCSVData(
     throw new Error('No Node ID column specified')
   }
 
-  // Find the label column (optional)
-  const labelMapping = mappings.find((m) => m.role === 'label')
+  // Note: Label mappings are processed in the switch statement below
 
   // Process each row
   for (const row of parsed.rows) {
@@ -47,10 +46,11 @@ export function processCSVData(
       continue // Skip rows without ID
     }
 
-    // Create node
+    // Create node - Node ID is the default label
     const node: NodeData = {
       id: nodeId.trim(),
-      label: labelMapping ? row[labelMapping.columnName] : nodeId.trim(),
+      label: nodeId.trim(), // Node ID is always the primary label
+      canvasLabels: [],
       attributes: {},
       tags: [],
       isStub: false,
@@ -63,8 +63,21 @@ export function processCSVData(
 
       switch (mapping.role) {
         case 'node_id':
-        case 'label':
           // Already handled
+          break
+
+        case 'label':
+          // Add as canvas label if showOnCanvas is true
+          if (cellValue && mapping.showOnCanvas !== false) {
+            const labelValue = Array.isArray(parseAttributeValue(cellValue))
+              ? (parseAttributeValue(cellValue) as string[]).join(', ')
+              : String(parseAttributeValue(cellValue))
+            node.canvasLabels?.push(labelValue)
+          }
+          // Also store as attribute with column name as key
+          if (cellValue) {
+            node.attributes[mapping.columnName] = parseAttributeValue(cellValue)
+          }
           break
 
         case 'attribute':
@@ -80,17 +93,13 @@ export function processCSVData(
           }
           break
 
-        case 'link_to_attribute':
-          // Process link mappings
-          if (
-            mapping.linkSourceAttr &&
-            mapping.linkTargetAttr &&
-            cellValue
-          ) {
+        case 'link_to_column':
+          // Process link mappings - match this column's values to target column's values
+          if (mapping.linkTargetColumn && cellValue) {
             const sourceValues = parseMultiValue(cellValue)
 
-            // Also store the source attribute on the node
-            node.attributes[mapping.linkSourceAttr] = parseAttributeValue(cellValue)
+            // Store as attribute with column name as key
+            node.attributes[mapping.columnName] = parseAttributeValue(cellValue)
 
             // Create edges for each value
             for (const value of sourceValues) {
@@ -98,8 +107,8 @@ export function processCSVData(
                 edges.push({
                   source: node.id,
                   target: value.trim(), // Target will be resolved or create stub
-                  sourceAttr: mapping.linkSourceAttr,
-                  targetAttr: mapping.linkTargetAttr,
+                  sourceColumn: mapping.columnName,
+                  targetColumn: mapping.linkTargetColumn,
                 })
               }
             }
@@ -128,7 +137,7 @@ export function processCSVData(
     const sourceNode = nodeMap.get(edge.source)
     if (!sourceNode) continue
 
-    // Find target node(s) by matching attribute values
+    // Find target node(s) by matching column values
     let targetFound = false
 
     // Check if target is a direct node ID
@@ -136,12 +145,12 @@ export function processCSVData(
       targetFound = true
       processedEdges.push({
         ...edge,
-        id: `${edge.source}-${edge.target}-${edge.targetAttr}`,
+        id: `${edge.source}-${edge.target}-${edge.targetColumn}`,
       })
-    } else if (edge.targetAttr) {
-      // Search for nodes with matching target attribute value
+    } else if (edge.targetColumn) {
+      // Search for nodes with matching target column value
       const matchingNodes = Array.from(nodeMap.values()).filter((node) => {
-        const attrValue = node.attributes[edge.targetAttr!]
+        const attrValue = node.attributes[edge.targetColumn!]
         if (!attrValue) return false
 
         if (Array.isArray(attrValue)) {
@@ -159,7 +168,7 @@ export function processCSVData(
           processedEdges.push({
             ...edge,
             target: targetNode.id,
-            id: `${edge.source}-${targetNode.id}-${edge.targetAttr}`,
+            id: `${edge.source}-${targetNode.id}-${edge.targetColumn}`,
           })
         }
       }
@@ -174,8 +183,9 @@ export function processCSVData(
         const stubNode: NodeData = {
           id: stubId,
           label: stubId,
-          attributes: edge.targetAttr
-            ? { [edge.targetAttr]: stubId }
+          canvasLabels: [],
+          attributes: edge.targetColumn
+            ? { [edge.targetColumn]: stubId }
             : {},
           tags: ['_stub'],
           isStub: true,
@@ -188,7 +198,7 @@ export function processCSVData(
       // Create edge to stub
       processedEdges.push({
         ...edge,
-        id: `${edge.source}-${stubId}-${edge.targetAttr || 'stub'}`,
+        id: `${edge.source}-${stubId}-${edge.targetColumn || 'stub'}`,
       })
     }
   }
@@ -285,13 +295,13 @@ export function mergeEdges(
 
   // Add existing edges
   existing.forEach((edge) => {
-    const key = `${edge.source}-${edge.target}-${edge.sourceAttr || ''}-${edge.targetAttr || ''}`
+    const key = `${edge.source}-${edge.target}-${edge.sourceColumn || ''}-${edge.targetColumn || ''}`
     edgeMap.set(key, edge)
   })
 
   // Add new edges
   newEdges.forEach((edge) => {
-    const key = `${edge.source}-${edge.target}-${edge.sourceAttr || ''}-${edge.targetAttr || ''}`
+    const key = `${edge.source}-${edge.target}-${edge.sourceColumn || ''}-${edge.targetColumn || ''}`
     if (!edgeMap.has(key)) {
       edgeMap.set(key, edge)
     }

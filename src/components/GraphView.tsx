@@ -98,9 +98,17 @@ export function GraphView() {
     const cy = cyRef.current
 
     // Convert nodes and edges to Cytoscape format
-    const cyNodes = nodes.map((node) => ({
-      data: { ...node, id: node.id },
-    }))
+    const cyNodes = nodes.map((node) => {
+      // Create display label: main label + canvas labels
+      let displayLabel = node.label || node.id
+      if (node.canvasLabels && node.canvasLabels.length > 0) {
+        displayLabel += '\n' + node.canvasLabels.join('\n')
+      }
+
+      return {
+        data: { ...node, id: node.id, label: displayLabel },
+      }
+    })
 
     const cyEdges = edges.map((edge) => ({
       data: {
@@ -200,10 +208,16 @@ function getCytoscapeStyles() {
         'color': '#1f2937',
         'text-valign': 'center',
         'text-halign': 'center',
-        'font-size': '12px',
+        'text-wrap': 'wrap',
+        'text-max-width': '200px',
+        'font-size': '11px',
         'font-weight': 'bold',
         'text-outline-color': '#ffffff',
         'text-outline-width': 2,
+        'text-background-color': '#ffffff',
+        'text-background-opacity': 0.7,
+        'text-background-padding': '4px',
+        'text-background-shape': 'roundrectangle',
         'width': 40,
         'height': 40,
       },

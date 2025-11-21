@@ -15,6 +15,8 @@ export interface NodeData {
   id: string
   /** Display label (optional, defaults to id if not provided) */
   label?: string
+  /** Additional labels to show on canvas */
+  canvasLabels?: string[]
   /** Dynamic attributes - can be string or string array for multi-value support */
   attributes: Record<string, string | string[]>
   /** Tags for categorization and filtering */
@@ -35,10 +37,10 @@ export interface EdgeData {
   source: string
   /** Target node ID */
   target: string
-  /** Source attribute name (for link mapping) */
-  sourceAttr?: string
-  /** Target attribute name (for link mapping) */
-  targetAttr?: string
+  /** Source column name (for link mapping) */
+  sourceColumn?: string
+  /** Target column name (for link mapping) */
+  targetColumn?: string
   /** Edge label (optional) */
   label?: string
 }
@@ -51,11 +53,11 @@ export interface EdgeData {
  * Column role types for CSV mapping wizard
  */
 export type ColumnRole =
-  | 'node_id'           // Unique identifier column
-  | 'label'             // Display label column
+  | 'node_id'           // Unique identifier column (can also be label)
+  | 'label'             // Display label column (additional labels)
   | 'attribute'         // Generic attribute column
   | 'tag'               // Tag column
-  | 'link_to_attribute' // Links to other nodes via attribute matching
+  | 'link_to_column'    // Links to other nodes via column value matching
   | 'ignore'            // Skip this column
 
 /**
@@ -68,10 +70,10 @@ export interface ColumnMapping {
   role: ColumnRole
   /** For 'attribute' and 'tag' roles: the attribute/tag name to use */
   attributeName?: string
-  /** For 'link_to_attribute': source attribute to match from */
-  linkSourceAttr?: string
-  /** For 'link_to_attribute': target attribute to match to */
-  linkTargetAttr?: string
+  /** For 'link_to_column': target column name to match against */
+  linkTargetColumn?: string
+  /** For 'label' role: show this label on the node canvas */
+  showOnCanvas?: boolean
 }
 
 /**
