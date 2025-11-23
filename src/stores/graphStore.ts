@@ -193,9 +193,11 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
       const attrValue = node.attributes[attribute]
       if (attrValue) {
         if (Array.isArray(attrValue)) {
-          attrValue.forEach((v) => values.add(v))
-        } else {
+          attrValue.forEach((v) => values.add(String(v)))
+        } else if (typeof attrValue === 'string') {
           values.add(attrValue)
+        } else {
+          values.add(JSON.stringify(attrValue))
         }
       }
     })

@@ -21,7 +21,7 @@ import { useEdgeTemplateStore } from '../stores/edgeTemplateStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
 import { computeNodeStyle, computeEdgeStyle } from '../utils/styleEvaluator'
-import type { NodeData, EdgeData, CardTemplate, AttributeDisplay, AttributeTemplate, EdgeTemplate } from '../types'
+import type { NodeData, EdgeData, CardTemplate, AttributeDisplay, AttributeTemplate } from '../types'
 
 // Register layout extensions
 cytoscape.use(coseBilkent)
@@ -69,28 +69,27 @@ function resolveAttributeDisplay(
   display: AttributeDisplay,
   attributeTemplateGetter: (id: string) => AttributeTemplate | undefined,
   defaultTemplate: AttributeTemplate | undefined
-): AttributeDisplay {
-  // Start with default template properties
-  let resolved: AttributeDisplay = { ...display }
+): any {
+  // Start with merged template properties
+  let resolvedStyle: any = {}
 
   // Apply default template if available
   if (defaultTemplate) {
-    resolved = {
-      ...resolved,
-      labelPrefix: resolved.labelPrefix ?? defaultTemplate.labelPrefix,
-      labelSuffix: resolved.labelSuffix ?? defaultTemplate.labelSuffix,
-      fontSize: resolved.fontSize ?? defaultTemplate.fontSize,
-      fontFamily: resolved.fontFamily ?? defaultTemplate.fontFamily,
-      color: resolved.color ?? defaultTemplate.color,
-      fontWeight: resolved.fontWeight ?? defaultTemplate.fontWeight,
-      fontStyle: resolved.fontStyle ?? defaultTemplate.fontStyle,
-      textDecoration: resolved.textDecoration ?? defaultTemplate.textDecoration,
-      textShadow: resolved.textShadow ?? defaultTemplate.textShadow,
-      textOutlineWidth: resolved.textOutlineWidth ?? defaultTemplate.textOutlineWidth,
-      textOutlineColor: resolved.textOutlineColor ?? defaultTemplate.textOutlineColor,
-      backgroundColor: resolved.backgroundColor ?? defaultTemplate.backgroundColor,
-      backgroundPadding: resolved.backgroundPadding ?? defaultTemplate.backgroundPadding,
-      borderRadius: resolved.borderRadius ?? defaultTemplate.borderRadius,
+    resolvedStyle = {
+      labelPrefix: defaultTemplate.labelPrefix,
+      labelSuffix: defaultTemplate.labelSuffix,
+      fontSize: defaultTemplate.fontSize,
+      fontFamily: defaultTemplate.fontFamily,
+      color: defaultTemplate.color,
+      fontWeight: defaultTemplate.fontWeight,
+      fontStyle: defaultTemplate.fontStyle,
+      textDecoration: defaultTemplate.textDecoration,
+      textShadow: defaultTemplate.textShadow,
+      textOutlineWidth: defaultTemplate.textOutlineWidth,
+      textOutlineColor: defaultTemplate.textOutlineColor,
+      backgroundColor: defaultTemplate.backgroundColor,
+      backgroundPadding: defaultTemplate.backgroundPadding,
+      borderRadius: defaultTemplate.borderRadius,
     }
   }
 
@@ -98,35 +97,35 @@ function resolveAttributeDisplay(
   if (display.attributeTemplateId) {
     const template = attributeTemplateGetter(display.attributeTemplateId)
     if (template) {
-      resolved = {
-        ...resolved,
-        labelPrefix: resolved.labelPrefix ?? template.labelPrefix,
-        labelSuffix: resolved.labelSuffix ?? template.labelSuffix,
-        fontSize: resolved.fontSize ?? template.fontSize,
-        fontFamily: resolved.fontFamily ?? template.fontFamily,
-        color: resolved.color ?? template.color,
-        fontWeight: resolved.fontWeight ?? template.fontWeight,
-        fontStyle: resolved.fontStyle ?? template.fontStyle,
-        textDecoration: resolved.textDecoration ?? template.textDecoration,
-        textShadow: resolved.textShadow ?? template.textShadow,
-        textOutlineWidth: resolved.textOutlineWidth ?? template.textOutlineWidth,
-        textOutlineColor: resolved.textOutlineColor ?? template.textOutlineColor,
-        backgroundColor: resolved.backgroundColor ?? template.backgroundColor,
-        backgroundPadding: resolved.backgroundPadding ?? template.backgroundPadding,
-        borderRadius: resolved.borderRadius ?? template.borderRadius,
+      resolvedStyle = {
+        ...resolvedStyle,
+        labelPrefix: resolvedStyle.labelPrefix ?? template.labelPrefix,
+        labelSuffix: resolvedStyle.labelSuffix ?? template.labelSuffix,
+        fontSize: resolvedStyle.fontSize ?? template.fontSize,
+        fontFamily: resolvedStyle.fontFamily ?? template.fontFamily,
+        color: resolvedStyle.color ?? template.color,
+        fontWeight: resolvedStyle.fontWeight ?? template.fontWeight,
+        fontStyle: resolvedStyle.fontStyle ?? template.fontStyle,
+        textDecoration: resolvedStyle.textDecoration ?? template.textDecoration,
+        textShadow: resolvedStyle.textShadow ?? template.textShadow,
+        textOutlineWidth: resolvedStyle.textOutlineWidth ?? template.textOutlineWidth,
+        textOutlineColor: resolvedStyle.textOutlineColor ?? template.textOutlineColor,
+        backgroundColor: resolvedStyle.backgroundColor ?? template.backgroundColor,
+        backgroundPadding: resolvedStyle.backgroundPadding ?? template.backgroundPadding,
+        borderRadius: resolvedStyle.borderRadius ?? template.borderRadius,
       }
     }
   }
 
   // Apply overrides (highest priority)
   if (display.overrides) {
-    resolved = {
-      ...resolved,
+    resolvedStyle = {
+      ...resolvedStyle,
       ...display.overrides,
     }
   }
 
-  return resolved
+  return resolvedStyle
 }
 
 /**

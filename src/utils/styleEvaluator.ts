@@ -49,7 +49,7 @@ export function evaluateRuleForEdge(
  */
 function evaluateCondition(
   rule: StyleRule,
-  attributes: Record<string, string | string[]>,
+  attributes: Record<string, string | string[] | Record<string, any>>,
   _tags: string[]
 ): boolean {
   const { operator, attribute, value } = rule
@@ -112,7 +112,7 @@ function evaluateCondition(
  * Match a value (or array of values) against a comparison function
  */
 function matchValue(
-  attrValue: string | string[] | undefined | null,
+  attrValue: string | string[] | Record<string, any> | undefined | null,
   compareValue: string,
   compareFn: (a: string, b: string) => boolean
 ): boolean {
@@ -120,7 +120,12 @@ function matchValue(
 
   if (Array.isArray(attrValue)) {
     // For arrays, return true if ANY value matches
-    return attrValue.some((v) => compareFn(v, compareValue))
+    return attrValue.some((v) => compareFn(String(v), compareValue))
+  }
+
+  // Convert objects to JSON string for comparison
+  if (typeof attrValue === 'object') {
+    return compareFn(JSON.stringify(attrValue), compareValue)
   }
 
   return compareFn(attrValue, compareValue)

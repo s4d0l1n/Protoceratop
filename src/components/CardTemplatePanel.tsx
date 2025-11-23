@@ -168,9 +168,9 @@ function TemplateCard({ template, onEdit, onDelete, onSetDefault }: TemplateCard
           </p>
         </div>
         <div>
-          <span className="text-gray-500 dark:text-gray-400">Groups:</span>
+          <span className="text-gray-500 dark:text-gray-400">Attributes:</span>
           <p className="text-xs mt-1">
-            {template.attributeGroups?.length || 0} attribute groups
+            {template.attributeDisplays?.length || 0} attribute displays
           </p>
         </div>
       </div>

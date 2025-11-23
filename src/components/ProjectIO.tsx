@@ -9,6 +9,9 @@ import { useCSVStore } from '../stores/csvStore'
 import { useStyleStore } from '../stores/styleStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
+import { useAttributeTemplateStore } from '../stores/attributeTemplateStore'
+import { useCardTemplateStore } from '../stores/cardTemplateStore'
+import { useEdgeTemplateStore } from '../stores/edgeTemplateStore'
 import { exportProject, importProject, downloadFile, readFile } from '../utils/projectIO'
 import type { ProjectState } from '../types'
 
@@ -18,6 +21,9 @@ export function ProjectIOButtons() {
   const { styleRules } = useStyleStore()
   const { layoutConfig, nodePositions } = useLayoutStore()
   const { setError, setSuccess, setLoading } = useUIStore()
+  const { attributeTemplates } = useAttributeTemplateStore()
+  const { cardTemplates } = useCardTemplateStore()
+  const { edgeTemplates } = useEdgeTemplateStore()
 
   const handleSave = () => {
     try {
@@ -34,6 +40,9 @@ export function ProjectIOButtons() {
         styleRules,
         layoutConfig,
         nodePositions,
+        attributeTemplates,
+        cardTemplates,
+        edgeTemplates,
       }
 
       const jsonContent = exportProject(projectState)
