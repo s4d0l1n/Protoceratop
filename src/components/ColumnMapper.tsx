@@ -16,22 +16,17 @@ const ROLE_OPTIONS: { value: ColumnRole; label: string; description: string }[] 
   {
     value: 'node_id',
     label: 'Node ID',
-    description: 'Unique identifier (also used as default label)',
-  },
-  {
-    value: 'label',
-    label: 'Label',
-    description: 'Additional label to show on node',
+    description: 'Unique identifier (used as primary label)',
   },
   {
     value: 'attribute',
     label: 'Attribute',
-    description: 'Store as node attribute (specify grouping name)',
+    description: 'Store as attribute (defaults to column name)',
   },
   {
-    value: 'tag',
-    label: 'Tag',
-    description: 'Add as node tag(s)',
+    value: 'timestamp',
+    label: 'Timestamp',
+    description: 'Timeline positioning (ISO date or Unix timestamp)',
   },
   {
     value: 'link_to_column',
@@ -41,7 +36,7 @@ const ROLE_OPTIONS: { value: ColumnRole; label: string; description: string }[] 
   {
     value: 'ignore',
     label: 'Ignore',
-    description: 'Skip this column',
+    description: 'Hide from display (still usable in style rules)',
   },
 ]
 
@@ -64,10 +59,9 @@ export function ColumnMapper() {
           ? {
               ...m,
               role,
-              // Clear role-specific fields when changing role
-              attributeName: role === 'attribute' || role === 'tag' ? m.attributeName : undefined,
+              // Auto-populate attribute name with column name for 'attribute' role
+              attributeName: role === 'attribute' ? (m.attributeName || columnName) : undefined,
               linkTargetColumn: undefined,
-              showOnCanvas: role === 'label' ? true : undefined,
             }
           : m
       )
@@ -90,14 +84,6 @@ export function ColumnMapper() {
     )
   }
 
-  const handleShowOnCanvasChange = (columnName: string, showOnCanvas: boolean) => {
-    setMappings((prev) =>
-      prev.map((m) =>
-        m.columnName === columnName ? { ...m, showOnCanvas } : m
-      )
-    )
-  }
-
   const handleProcess = async () => {
     try {
       setLoading(true)
@@ -113,11 +99,11 @@ export function ColumnMapper() {
         return
       }
 
-      // Validate attribute names
+      // Validate attribute names and auto-fill if empty
       for (const mapping of mappings) {
-        if ((mapping.role === 'attribute' || mapping.role === 'tag') && !mapping.attributeName) {
-          setError(`Please specify a name for the ${mapping.role} column: ${mapping.columnName}`)
-          return
+        if (mapping.role === 'attribute' && !mapping.attributeName) {
+          // Auto-fill with column name
+          mapping.attributeName = mapping.columnName
         }
 
         if (mapping.role === 'link_to_column') {
@@ -210,7 +196,6 @@ export function ColumnMapper() {
               onRoleChange={handleRoleChange}
               onAttributeNameChange={handleAttributeNameChange}
               onLinkColumnChange={handleLinkColumnChange}
-              onShowOnCanvasChange={handleShowOnCanvasChange}
             />
           ))}
         </div>
@@ -246,7 +231,6 @@ interface ColumnMappingRowProps {
   onRoleChange: (columnName: string, role: ColumnRole) => void
   onAttributeNameChange: (columnName: string, name: string) => void
   onLinkColumnChange: (columnName: string, targetColumn: string) => void
-  onShowOnCanvasChange: (columnName: string, showOnCanvas: boolean) => void
 }
 
 function ColumnMappingRow({
@@ -257,7 +241,6 @@ function ColumnMappingRow({
   onRoleChange,
   onAttributeNameChange,
   onLinkColumnChange,
-  onShowOnCanvasChange,
 }: ColumnMappingRowProps) {
   return (
     <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -296,18 +279,21 @@ function ColumnMappingRow({
 
         {/* Role-Specific Fields */}
         <div className="col-span-6">
-          {(mapping.role === 'attribute' || mapping.role === 'tag') && (
+          {mapping.role === 'attribute' && (
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                {mapping.role === 'attribute' ? 'Attribute Name' : 'Tag Name'}
+                Attribute Name (optional)
               </label>
               <input
                 type="text"
                 value={mapping.attributeName || ''}
                 onChange={(e) => onAttributeNameChange(mapping.columnName, e.target.value)}
-                placeholder={`Enter ${mapping.role} name...`}
+                placeholder={`Defaults to: ${mapping.columnName}`}
                 className="w-full p-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded text-sm focus:ring-2 focus:ring-cyber-500 focus:border-transparent"
               />
+              <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                Leave empty to use column name
+              </p>
             </div>
           )}
 
@@ -338,31 +324,8 @@ function ColumnMappingRow({
 
           {mapping.role === 'node_id' && (
             <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-2">
-              This column will be used as the unique identifier and default label
+              This column will be used as the unique identifier and primary label
             </p>
-          )}
-
-          {mapping.role === 'label' && (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id={`show-canvas-${mapping.columnName}`}
-                  checked={mapping.showOnCanvas !== false}
-                  onChange={(e) => onShowOnCanvasChange(mapping.columnName, e.target.checked)}
-                  className="w-4 h-4 text-cyber-600 bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 rounded focus:ring-cyber-500"
-                />
-                <label
-                  htmlFor={`show-canvas-${mapping.columnName}`}
-                  className="text-xs font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Show on canvas
-                </label>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                Display this value as an additional label on the node
-              </p>
-            </div>
           )}
 
           {mapping.role === 'ignore' && (

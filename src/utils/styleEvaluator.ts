@@ -8,12 +8,14 @@ import type { StyleRule, NodeData, EdgeData, StyleProperties } from '../types'
 
 /**
  * Evaluate a style rule against a node
+ * Applies to rules targeting 'nodes' or 'attributes'
  */
 export function evaluateRuleForNode(
   rule: StyleRule,
   node: NodeData
 ): boolean {
   if (!rule.enabled) return false
+  // Only evaluate if targeting nodes or attributes (both apply to nodes)
   if (rule.target === 'edges') return false
 
   return evaluateCondition(rule, node.attributes, node.tags)
@@ -27,7 +29,8 @@ export function evaluateRuleForEdge(
   edge: EdgeData
 ): boolean {
   if (!rule.enabled) return false
-  if (rule.target === 'nodes') return false
+  // Only evaluate if targeting edges
+  if (rule.target !== 'edges') return false
 
   // For edges, we mainly check existence and basic properties
   const attributes: Record<string, string | string[]> = {
@@ -125,22 +128,46 @@ function matchValue(
 
 /**
  * Compute final style for a node by applying all matching rules in order
+ * Returns only template IDs and organizational properties (tags, groupLabel)
  */
 export function computeNodeStyle(
   node: NodeData,
   rules: StyleRule[]
-): StyleProperties {
+): StyleProperties & { tagsToApply?: string[]; groupLabelToApply?: string } {
   const style: StyleProperties = {}
+  const tagsToApply: string[] = []
+  let groupLabelToApply: string | undefined
 
   // Rules are already sorted by order (lower = higher priority)
   // Apply rules in order, later rules override earlier ones
   for (const rule of rules) {
     if (evaluateRuleForNode(rule, node)) {
-      Object.assign(style, rule.style)
+      // Collect tags to apply
+      if (rule.style.applyTag && !tagsToApply.includes(rule.style.applyTag)) {
+        tagsToApply.push(rule.style.applyTag)
+      }
+      // Collect group label (only one group per node, last matching rule wins)
+      if (rule.style.groupLabel) {
+        groupLabelToApply = rule.style.groupLabel
+      }
+
+      // Apply template assignments based on rule target
+      if (rule.target === 'nodes' && rule.style.cardTemplateId) {
+        style.cardTemplateId = rule.style.cardTemplateId
+      }
+
+      if (rule.target === 'attributes' && rule.style.attributeTemplateId) {
+        style.attributeTemplateId = rule.style.attributeTemplateId
+        style.targetAttribute = rule.style.targetAttribute
+      }
     }
   }
 
-  return style
+  return {
+    ...style,
+    tagsToApply: tagsToApply.length > 0 ? tagsToApply : undefined,
+    groupLabelToApply,
+  }
 }
 
 /**

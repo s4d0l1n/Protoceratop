@@ -50,7 +50,6 @@ export function processCSVData(
     const node: NodeData = {
       id: nodeId.trim(),
       label: nodeId.trim(), // Node ID is always the primary label
-      canvasLabels: [],
       attributes: {},
       tags: [],
       isStub: false,
@@ -66,30 +65,19 @@ export function processCSVData(
           // Already handled
           break
 
-        case 'label':
-          // Add as canvas label if showOnCanvas is true
-          if (cellValue && mapping.showOnCanvas !== false) {
-            const labelValue = Array.isArray(parseAttributeValue(cellValue))
-              ? (parseAttributeValue(cellValue) as string[]).join(', ')
-              : String(parseAttributeValue(cellValue))
-            node.canvasLabels?.push(labelValue)
-          }
-          // Also store as attribute with column name as key
-          if (cellValue) {
-            node.attributes[mapping.columnName] = parseAttributeValue(cellValue)
-          }
-          break
-
         case 'attribute':
           if (mapping.attributeName && cellValue) {
             node.attributes[mapping.attributeName] = parseAttributeValue(cellValue)
           }
           break
 
-        case 'tag':
+        case 'timestamp':
           if (cellValue) {
-            const tags = parseMultiValue(cellValue)
-            node.tags.push(...tags)
+            // Parse timestamp - support ISO strings, Unix timestamps, or various date formats
+            node.timestamp = parseTimestamp(cellValue)
+            // Also store as attribute for display/rules
+            const attributeName = mapping.attributeName || mapping.columnName
+            node.attributes[attributeName] = cellValue
           }
           break
 
@@ -116,7 +104,11 @@ export function processCSVData(
           break
 
         case 'ignore':
-          // Skip
+          // Store as hidden attribute (so style rules can still use it)
+          if (cellValue) {
+            const attributeName = mapping.attributeName || mapping.columnName
+            node.attributes[attributeName] = parseAttributeValue(cellValue)
+          }
           break
       }
     }
@@ -183,7 +175,6 @@ export function processCSVData(
         const stubNode: NodeData = {
           id: stubId,
           label: stubId,
-          canvasLabels: [],
           attributes: edge.targetColumn
             ? { [edge.targetColumn]: stubId }
             : {},
@@ -308,4 +299,27 @@ export function mergeEdges(
   })
 
   return Array.from(edgeMap.values())
+}
+
+/**
+ * Parse timestamp from various formats
+ * Supports: ISO strings, Unix timestamps (seconds or milliseconds), common date formats
+ */
+function parseTimestamp(value: string): number {
+  // Try parsing as number first (Unix timestamp)
+  const num = parseFloat(value)
+  if (!isNaN(num)) {
+    // If less than year 3000 in seconds, convert to milliseconds
+    return num < 10000000000 ? num * 1000 : num
+  }
+
+  // Try parsing as ISO date or other formats
+  const date = new Date(value)
+  if (!isNaN(date.getTime())) {
+    return date.getTime()
+  }
+
+  // If all else fails, return current time
+  console.warn(`Failed to parse timestamp: ${value}`)
+  return Date.now()
 }

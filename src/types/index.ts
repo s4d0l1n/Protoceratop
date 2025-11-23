@@ -13,18 +13,18 @@
 export interface NodeData {
   /** Unique identifier for the node */
   id: string
-  /** Display label (optional, defaults to id if not provided) */
+  /** Display label (defaults to id if not provided) */
   label?: string
-  /** Additional labels to show on canvas */
-  canvasLabels?: string[]
-  /** Dynamic attributes - can be string or string array for multi-value support */
-  attributes: Record<string, string | string[]>
-  /** Tags for categorization and filtering */
+  /** Dynamic attributes - can be string, array, or object (for JSON data) */
+  attributes: Record<string, string | string[] | Record<string, any>>
+  /** Tags for categorization and filtering (applied via style rules) */
   tags: string[]
   /** Indicates if this is a stub node (auto-created from links) */
   isStub?: boolean
   /** Source CSV filename(s) this node came from */
   _sources?: string[]
+  /** Timestamp for timeline positioning (Unix timestamp in milliseconds) */
+  timestamp?: number
 }
 
 /**
@@ -51,13 +51,13 @@ export interface EdgeData {
 
 /**
  * Column role types for CSV mapping wizard
+ * Note: Tags and labels are now applied via conditional formatting, not column mapping
  */
 export type ColumnRole =
-  | 'node_id'           // Unique identifier column (can also be label)
-  | 'label'             // Display label column (additional labels)
-  | 'attribute'         // Generic attribute column
-  | 'tag'               // Tag column
+  | 'node_id'           // Unique identifier column (primary label)
+  | 'attribute'         // Generic attribute column (default name = column name)
   | 'link_to_column'    // Links to other nodes via column value matching
+  | 'timestamp'         // Timestamp for timeline positioning
   | 'ignore'            // Skip this column
 
 /**
@@ -68,12 +68,10 @@ export interface ColumnMapping {
   columnName: string
   /** Assigned role */
   role: ColumnRole
-  /** For 'attribute' and 'tag' roles: the attribute/tag name to use */
+  /** For 'attribute' role: the attribute name to use */
   attributeName?: string
   /** For 'link_to_column': target column name to match against */
   linkTargetColumn?: string
-  /** For 'label' role: show this label on the node canvas */
-  showOnCanvas?: boolean
 }
 
 /**
@@ -111,7 +109,7 @@ export type StyleConditionOperator =
 /**
  * Target types for style rules
  */
-export type StyleRuleTarget = 'nodes' | 'edges' | 'both'
+export type StyleRuleTarget = 'nodes' | 'edges' | 'attributes'
 
 /**
  * Node shapes supported by Cytoscape
@@ -135,27 +133,22 @@ export type NodeShape =
   | 'vee'
 
 /**
- * Style properties that can be modified
+ * Style properties - ONLY template assignments, no inline styling
+ * Templates define all visual styling. Style rules only assign templates.
  */
 export interface StyleProperties {
-  /** Background/fill color */
-  backgroundColor?: string
-  /** Border color */
-  borderColor?: string
-  /** Border width in pixels */
-  borderWidth?: number
-  /** Node shape (nodes only) */
-  shape?: NodeShape
-  /** Size multiplier (e.g., 1.5 = 150%) */
-  size?: number
-  /** Lucide icon name (nodes only) */
-  icon?: string
-  /** Label badge text */
-  labelBadge?: string
-  /** Opacity (0-1) */
-  opacity?: number
-  /** Line style for borders/edges */
-  lineStyle?: 'solid' | 'dotted' | 'dashed'
+  /** Card template ID to apply (for nodes) */
+  cardTemplateId?: string
+  /** Attribute template ID to apply to a specific attribute */
+  attributeTemplateId?: string
+  /** Attribute name to target (when using attributeTemplateId) */
+  targetAttribute?: string
+  /** Edge template ID to apply (for edges) */
+  edgeTemplateId?: string
+  /** Tag to apply when condition matches (organizational) */
+  applyTag?: string
+  /** Group label - creates a visual group box (organizational) */
+  groupLabel?: string
 }
 
 /**
@@ -183,6 +176,217 @@ export interface StyleRule {
 }
 
 // ============================================================================
+// ATTRIBUTE TEMPLATES
+// ============================================================================
+
+/**
+ * Reusable styling template for attributes
+ * Can be applied to any attribute in any card template
+ */
+export interface AttributeTemplate {
+  /** Unique identifier */
+  id: string
+  /** Template name */
+  name: string
+  /** Template description */
+  description?: string
+  /** Is this the default template for all attributes */
+  isDefault?: boolean
+  /** Prefix to add before label */
+  labelPrefix?: string
+  /** Suffix to add after label */
+  labelSuffix?: string
+  /** Font size in px */
+  fontSize?: number
+  /** Font family */
+  fontFamily?: string
+  /** Text color */
+  color?: string
+  /** Font weight */
+  fontWeight?: 'normal' | 'bold'
+  /** Font style */
+  fontStyle?: 'normal' | 'italic'
+  /** Text decoration */
+  textDecoration?: 'none' | 'underline' | 'line-through'
+  /** Text shadow / glow effect */
+  textShadow?: string
+  /** Text outline width */
+  textOutlineWidth?: number
+  /** Text outline color */
+  textOutlineColor?: string
+  /** Background color for this attribute */
+  backgroundColor?: string
+  /** Background padding */
+  backgroundPadding?: number
+  /** Background border radius */
+  borderRadius?: number
+}
+
+// ============================================================================
+// EDGE TEMPLATES
+// ============================================================================
+
+/**
+ * Reusable styling template for edges/lines
+ */
+export interface EdgeTemplate {
+  /** Unique identifier */
+  id: string
+  /** Template name */
+  name: string
+  /** Template description */
+  description?: string
+  /** Is this the default template for all edges */
+  isDefault?: boolean
+  /** Line color */
+  lineColor?: string
+  /** Line width in pixels */
+  lineWidth?: number
+  /** Line style */
+  lineStyle?: 'solid' | 'dotted' | 'dashed'
+  /** Arrow shape */
+  arrowShape?: 'triangle' | 'triangle-tee' | 'circle-triangle' | 'triangle-cross' | 'chevron' | 'none'
+  /** Opacity (0-1) */
+  opacity?: number
+  /** Edge label */
+  label?: string
+  /** Label font size */
+  labelFontSize?: number
+  /** Label color */
+  labelColor?: string
+  /** Label background color */
+  labelBackgroundColor?: string
+}
+
+// ============================================================================
+// CARD TEMPLATES
+// ============================================================================
+
+/**
+ * How an attribute should be displayed on a node
+ */
+export interface AttributeDisplay {
+  /** Attribute name or pattern (use '__id__' for node ID) */
+  attribute: string
+  /** Custom display label (if different from attribute name) */
+  displayLabel?: string
+  /** Show this attribute */
+  visible: boolean
+  /** Display order */
+  order: number
+  /** Attribute template ID to use for styling */
+  attributeTemplateId?: string
+  /** Override specific properties from the attribute template */
+  overrides?: {
+    labelPrefix?: string
+    labelSuffix?: string
+    fontSize?: number
+    fontFamily?: string
+    color?: string
+    fontWeight?: 'normal' | 'bold'
+    fontStyle?: 'normal' | 'italic'
+    textDecoration?: 'none' | 'underline' | 'line-through'
+    textShadow?: string
+    textOutlineWidth?: number
+    textOutlineColor?: string
+    backgroundColor?: string
+    backgroundPadding?: number
+    borderRadius?: number
+  }
+}
+
+/**
+ * Default text styling for card template
+ * Applied to all attributes on the card (can be overridden per-attribute)
+ */
+export interface CardTextStyle {
+  /** Font size in px */
+  fontSize?: number
+  /** Font family */
+  fontFamily?: string
+  /** Text color */
+  color?: string
+  /** Font weight */
+  fontWeight?: 'normal' | 'bold'
+  /** Font style */
+  fontStyle?: 'normal' | 'italic'
+  /** Text decoration */
+  textDecoration?: 'none' | 'underline' | 'line-through'
+  /** Text shadow / glow effect */
+  textShadow?: string
+  /** Text outline width */
+  textOutlineWidth?: number
+  /** Text outline color */
+  textOutlineColor?: string
+}
+
+/**
+ * Layout settings for card template
+ */
+export interface CardLayoutSettings {
+  /** Maximum width of text on node */
+  maxWidth?: number
+  /** Line height multiplier */
+  lineHeight?: number
+  /** Padding around content */
+  padding?: number
+  /** Show attribute labels (name: value) or just values */
+  showLabels?: boolean
+  /** Separator between attributes */
+  separator?: string
+  /** Text alignment */
+  textAlign?: 'left' | 'center' | 'right'
+}
+
+/**
+ * Node visual styling within card template
+ */
+export interface NodeVisualStyle {
+  /** Background/fill color */
+  backgroundColor?: string
+  /** Border color */
+  borderColor?: string
+  /** Border width in pixels */
+  borderWidth?: number
+  /** Node shape */
+  shape?: NodeShape
+  /** Size multiplier (e.g., 1.5 = 150%) */
+  size?: number
+  /** Icon emoji/unicode - replaces shape */
+  icon?: string
+  /** Custom image URL (data URL from uploaded PNG) - replaces shape */
+  imageUrl?: string
+  /** Icon color (for SVG icons) */
+  iconColor?: string
+  /** Opacity (0-1) */
+  opacity?: number
+}
+
+/**
+ * Card template definition - defines how a node appears
+ */
+export interface CardTemplate {
+  /** Unique identifier */
+  id: string
+  /** Template name */
+  name: string
+  /** Template description */
+  description?: string
+  /** Node visual styling */
+  nodeStyle?: NodeVisualStyle
+  /** Default text styling for all attributes on this card */
+  textStyle?: CardTextStyle
+  /** Attribute displays */
+  attributeDisplays: AttributeDisplay[]
+  /** Layout settings */
+  layout: CardLayoutSettings
+  /** Merge mode: 'replace' or 'merge' */
+  mergeMode: 'replace' | 'merge'
+  /** Is this the default template */
+  isDefault?: boolean
+}
+
+// ============================================================================
 // GRAPH LAYOUT
 // ============================================================================
 
@@ -190,11 +394,16 @@ export interface StyleRule {
  * Supported layout algorithms
  */
 export type LayoutType =
-  | 'cose-bilkent'  // Force-directed (default)
-  | 'cola'          // Constraint-based
-  | 'circle'        // Circular layout
-  | 'grid'          // Grid layout
-  | 'preset'        // Use saved positions
+  | 'fcose'           // Fast Compound Spring Embedder (ideal for network topology)
+  | 'dagre'           // Hierarchical DAG layout (ideal for internet mapping)
+  | 'timeline'        // Timeline layout (positions nodes by timestamp on X-axis)
+  | 'cose-bilkent'    // Force-directed (default)
+  | 'cola'            // Constraint-based (avoids overlap)
+  | 'breadthfirst'    // Hierarchical tree (avoids overlap)
+  | 'concentric'      // Concentric circles (avoids overlap)
+  | 'circle'          // Circular layout
+  | 'grid'            // Grid layout (avoids overlap)
+  | 'preset'          // Use saved positions
 
 /**
  * Layout configuration
@@ -243,6 +452,12 @@ export interface ProjectState {
   edges: EdgeData[]
   /** Style rules */
   styleRules: StyleRule[]
+  /** Attribute templates */
+  attributeTemplates: AttributeTemplate[]
+  /** Card templates */
+  cardTemplates: CardTemplate[]
+  /** Edge templates */
+  edgeTemplates: EdgeTemplate[]
   /** Layout configuration */
   layoutConfig: LayoutConfig
   /** Saved node positions */
@@ -275,6 +490,12 @@ export interface UIPanelState {
   columnMapper: boolean
   /** Style rules panel visible */
   stylePanel: boolean
+  /** Card template panel visible */
+  cardTemplatePanel: boolean
+  /** Attribute template panel visible */
+  attributeTemplatePanel: boolean
+  /** Edge template panel visible */
+  edgeTemplatePanel: boolean
   /** Node detail panel visible */
   detailPanel: boolean
   /** Layout controls visible */

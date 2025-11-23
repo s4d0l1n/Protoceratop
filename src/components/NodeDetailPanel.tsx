@@ -6,15 +6,75 @@
 import { X, Copy, Tag, Link as LinkIcon } from 'lucide-react'
 import { useUIStore } from '../stores/uiStore'
 import { useGraphStore } from '../stores/graphStore'
+import { useCardTemplateStore } from '../stores/cardTemplateStore'
+import { useAttributeTemplateStore } from '../stores/attributeTemplateStore'
+import { useStyleStore } from '../stores/styleStore'
+import { computeNodeStyle } from '../utils/styleEvaluator'
+import type { AttributeDisplay, AttributeTemplate } from '../types'
+
+/**
+ * Resolve AttributeDisplay properties by merging attribute template
+ * Hierarchy: Default Template → Specific Template → Overrides
+ */
+function resolveAttributeDisplay(
+  display: AttributeDisplay | undefined,
+  attributeTemplateGetter: (id: string) => AttributeTemplate | undefined,
+  defaultTemplate: AttributeTemplate | undefined
+): AttributeTemplate {
+  // Start with default template or empty object
+  let resolved: any = defaultTemplate ? { ...defaultTemplate } : {}
+
+  // Apply specific attribute template if assigned
+  if (display?.attributeTemplateId) {
+    const template = attributeTemplateGetter(display.attributeTemplateId)
+    if (template) {
+      // Merge template properties (overwriting defaults)
+      Object.keys(template).forEach(key => {
+        if (template[key as keyof AttributeTemplate] !== undefined) {
+          resolved[key] = template[key as keyof AttributeTemplate]
+        }
+      })
+    }
+  }
+
+  // Apply overrides (highest priority)
+  if (display?.overrides) {
+    Object.keys(display.overrides).forEach(key => {
+      if (display.overrides![key as keyof typeof display.overrides] !== undefined) {
+        resolved[key] = display.overrides![key as keyof typeof display.overrides]
+      }
+    })
+  }
+
+  return resolved
+}
 
 export function NodeDetailPanel() {
   const { selectedNode, closePanel } = useUIStore()
   const { getEdgesForNode } = useGraphStore()
+  const { getDefaultTemplate, getCardTemplate } = useCardTemplateStore()
+  const { getAttributeTemplate, getDefaultTemplate: getDefaultAttributeTemplate } = useAttributeTemplateStore()
+  const { getEnabledRules } = useStyleStore()
 
   if (!selectedNode) return null
 
   const { data } = selectedNode
   const edges = getEdgesForNode(data.id)
+
+  // Get the active card template for this node
+  const enabledRules = getEnabledRules()
+  const style = computeNodeStyle(data, enabledRules)
+  const defaultCardTemplate = getDefaultTemplate()
+  let activeCardTemplate = defaultCardTemplate
+
+  if (style.cardTemplateId) {
+    const ruleTemplate = getCardTemplate(style.cardTemplateId)
+    if (ruleTemplate) {
+      activeCardTemplate = ruleTemplate
+    }
+  }
+
+  const defaultAttrTemplate = getDefaultAttributeTemplate()
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -122,43 +182,106 @@ export function NodeDetailPanel() {
             Attributes ({Object.keys(data.attributes).length})
           </label>
           <div className="space-y-3">
-            {Object.entries(data.attributes).map(([key, value]) => (
-              <div
-                key={key}
-                className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                    {key}
-                  </span>
-                  <button
-                    onClick={() =>
-                      copyToClipboard(Array.isArray(value) ? value.join(', ') : value)
-                    }
-                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
-                    title="Copy value"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
+            {Object.entries(data.attributes).map(([key, value]) => {
+              // Find AttributeDisplay for this attribute in the card template
+              const attrDisplay = activeCardTemplate?.attributeDisplays.find(d => d.attribute === key)
+
+              // Resolve the attribute template for this attribute
+              const resolvedTemplate = resolveAttributeDisplay(attrDisplay, getAttributeTemplate, defaultAttrTemplate)
+
+              // Build inline styles from template
+              const labelStyle: React.CSSProperties = {}
+              const valueStyle: React.CSSProperties = {}
+              const containerStyle: React.CSSProperties = {}
+
+              // Always try to apply template properties
+              if (resolvedTemplate) {
+                // Apply label styling
+                if (resolvedTemplate.fontSize) labelStyle.fontSize = `${resolvedTemplate.fontSize}px`
+                if (resolvedTemplate.fontFamily) labelStyle.fontFamily = resolvedTemplate.fontFamily
+                if (resolvedTemplate.fontWeight) labelStyle.fontWeight = resolvedTemplate.fontWeight
+                if (resolvedTemplate.fontStyle) labelStyle.fontStyle = resolvedTemplate.fontStyle
+                if (resolvedTemplate.textDecoration) labelStyle.textDecoration = resolvedTemplate.textDecoration
+                if (resolvedTemplate.color) labelStyle.color = resolvedTemplate.color
+                if (resolvedTemplate.textShadow) labelStyle.textShadow = resolvedTemplate.textShadow
+                if (resolvedTemplate.textOutlineWidth && resolvedTemplate.textOutlineColor) {
+                  labelStyle.WebkitTextStroke = `${resolvedTemplate.textOutlineWidth}px ${resolvedTemplate.textOutlineColor}`
+                }
+
+                // Apply value styling (same as label)
+                Object.assign(valueStyle, labelStyle)
+
+                // Apply background styling
+                if (resolvedTemplate.backgroundColor) {
+                  containerStyle.backgroundColor = resolvedTemplate.backgroundColor
+                }
+                if (resolvedTemplate.backgroundPadding) {
+                  containerStyle.padding = `${resolvedTemplate.backgroundPadding}px`
+                }
+                if (resolvedTemplate.borderRadius) {
+                  containerStyle.borderRadius = `${resolvedTemplate.borderRadius}px`
+                }
+              }
+
+              const displayLabel = attrDisplay?.displayLabel || key
+              const prefix = resolvedTemplate?.labelPrefix || ''
+              const suffix = resolvedTemplate?.labelSuffix || ''
+
+              return (
+                <div
+                  key={key}
+                  className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                  style={containerStyle}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span
+                      className="text-xs font-medium"
+                      style={labelStyle}
+                    >
+                      {prefix}{displayLabel}{suffix}
+                    </span>
+                    <button
+                      onClick={() =>
+                        copyToClipboard(Array.isArray(value) ? value.join(', ') : String(value))
+                      }
+                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                      title="Copy value"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="text-sm" style={valueStyle}>
+                    {Array.isArray(value) ? (
+                      // Array: show as simple list with same formatting as single values
+                      <div className="space-y-0.5">
+                        {value.map((v, idx) => (
+                          <div key={idx} className="font-mono break-all">
+                            {String(v)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : typeof value === 'object' && value !== null ? (
+                      // Object: show as key-value pairs
+                      <div className="space-y-1 pl-2 border-l-2 border-blue-300 dark:border-blue-700">
+                        {Object.entries(value).map(([k, v], idx) => (
+                          <div key={idx} className="flex items-start space-x-2">
+                            <span className="text-xs font-semibold min-w-[80px]">
+                              {k}:
+                            </span>
+                            <span className="text-xs font-mono break-all">
+                              {String(v)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      // String: show as mono text
+                      <span className="font-mono break-all">{String(value)}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-900 dark:text-gray-100">
-                  {Array.isArray(value) ? (
-                    <div className="flex flex-wrap gap-1">
-                      {value.map((v, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs"
-                        >
-                          {v}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="font-mono break-all">{value}</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

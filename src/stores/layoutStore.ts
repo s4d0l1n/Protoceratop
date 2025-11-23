@@ -21,23 +21,29 @@ interface LayoutStore {
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
   // Initial state
   layoutConfig: {
-    type: 'cose-bilkent',
+    type: 'fcose',
     options: {
-      // cose-bilkent default options
+      // fcose default options - optimized for network topology
       animate: true,
       animationDuration: 1000,
       fit: true,
-      padding: 30,
+      padding: 50,
+      quality: 'proof',
       randomize: false,
-      nodeRepulsion: 4500,
-      idealEdgeLength: 100,
+      nodeDimensionsIncludeLabels: true,
+      idealEdgeLength: 250,
       edgeElasticity: 0.45,
+      nodeRepulsion: 8000,
       nestingFactor: 0.1,
       gravity: 0.25,
       numIter: 2500,
       tile: true,
-      tilingPaddingVertical: 10,
-      tilingPaddingHorizontal: 10,
+      tilingPaddingVertical: 40,
+      tilingPaddingHorizontal: 40,
+      gravityRange: 3.8,
+      initialTemp: 1000,
+      coolingFactor: 0.95,
+      minTemp: 1.0,
     },
   },
   nodePositions: [],

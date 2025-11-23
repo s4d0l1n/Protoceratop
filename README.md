@@ -1,8 +1,8 @@
 # 🦖 Protoceratop
 
-**The Ultimate Client-Side Threat Hunting Graph Visualization Tool**
+**Interactive Graph Visualization & Analysis Tool for CSV Data**
 
-Turn your CSVs into powerful, interactive threat-hunting graphs—100% offline, zero backend, open source.
+Transform your CSVs into powerful, interactive network graphs—100% offline, zero backend, open source. Perfect for data exploration, threat hunting, network analysis, and more.
 
 [![License](https://img.shields.io/badge/license-GNU-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
@@ -68,10 +68,52 @@ Turn your CSVs into powerful, interactive threat-hunting graphs—100% offline, 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
+**Option 1: Docker (Recommended)**
+- Docker
+- Docker Compose
+
+**Option 2: Local Development**
 - Node.js 18+
 - npm or yarn
 
 ### Installation
+
+#### 🐳 Docker Deployment (Production)
+
+The easiest way to deploy Protoceratop to your server:
+
+```bash
+# Clone the repository
+git clone https://github.com/s4d0l1n/Protoceratop.git
+cd Protoceratop
+
+# Build and start with Docker Compose
+docker-compose up -d
+
+# Or build manually
+docker build -t protoceratop .
+docker run -d -p 8080:80 --name protoceratop protoceratop
+```
+
+Access the application at `http://localhost:8080` (or your server's IP)
+
+**Docker Commands:**
+```bash
+# View logs
+docker-compose logs -f
+
+# Stop the container
+docker-compose down
+
+# Rebuild after changes
+docker-compose up -d --build
+
+# Check health status
+docker ps
+```
+
+#### 💻 Local Development
 
 ```bash
 # Clone the repository

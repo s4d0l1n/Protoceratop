@@ -16,6 +16,8 @@ interface StyleStore {
   reorderStyleRules: (rules: StyleRule[]) => void
   toggleStyleRule: (id: string) => void
   clearStyleRules: () => void
+  importStyleRules: (rules: StyleRule[], merge?: boolean) => void
+  exportStyleRules: () => StyleRule[]
 
   // Queries
   getEnabledRules: () => StyleRule[]
@@ -66,6 +68,26 @@ export const useStyleStore = create<StyleStore>((set, get) => ({
 
   clearStyleRules: () => {
     set({ styleRules: [] })
+  },
+
+  importStyleRules: (rules, merge = false) => {
+    if (merge) {
+      // Merge with existing rules (avoid duplicates by ID)
+      set((state) => {
+        const existingIds = new Set(state.styleRules.map((r) => r.id))
+        const newRules = rules.filter((r) => !existingIds.has(r.id))
+        return {
+          styleRules: [...state.styleRules, ...newRules],
+        }
+      })
+    } else {
+      // Replace all rules
+      set({ styleRules: rules })
+    }
+  },
+
+  exportStyleRules: () => {
+    return get().styleRules
   },
 
   // Queries

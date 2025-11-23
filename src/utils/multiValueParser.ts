@@ -107,11 +107,41 @@ export function isMultiValue(value: string | null | undefined): boolean {
 }
 
 /**
- * Convert a value to string or string array based on content
+ * Convert a value to string, string array, or object based on content
+ * Handles JSON objects and arrays intelligently
  */
 export function parseAttributeValue(
   value: string | null | undefined
-): string | string[] {
+): string | string[] | Record<string, any> {
+  if (!value || value.trim() === '') {
+    return ''
+  }
+
+  const trimmed = value.trim()
+
+  // Try to parse as JSON first (handles both objects and arrays)
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      // If it's an object (key-value pairs), return it as-is
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, any>
+      }
+      // If it's an array, process it
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.map((v) => String(v)).filter((v) => v.length > 0)
+        if (cleaned.length === 1) {
+          return cleaned[0]!
+        }
+        return cleaned
+      }
+    } catch {
+      // Not valid JSON, continue with normal parsing
+    }
+  }
+
+  // Fall back to multi-value parsing
   const parsed = parseMultiValue(value)
 
   // Return single value as string, multiple values as array

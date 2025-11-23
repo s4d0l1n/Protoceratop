@@ -10,20 +10,24 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tabler/icons": "^3.35.0",
+    "cytoscape": "^3.30.3",
+    "cytoscape-cola": "^2.5.1",
+    "cytoscape-cose-bilkent": "^4.1.0",
+    "cytoscape-dagre": "^2.5.0",
+    "cytoscape-fcose": "^2.2.0",
+    "dagre": "^0.8.5",
+    "lucide-react": "^0.462.0",
+    "papaparse": "^5.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "cytoscape": "^3.30.3",
-    "cytoscape-cose-bilkent": "^4.1.0",
-    "cytoscape-cola": "^2.5.1",
-    "papaparse": "^5.4.1",
-    "zustand": "^5.0.2",
-    "lucide-react": "^0.462.0"
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@types/cytoscape": "^3.21.8",
+    "@types/papaparse": "^5.3.15",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@types/papaparse": "^5.3.15",
-    "@types/cytoscape": "^3.21.8",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
     "@vitejs/plugin-react": "^4.3.4",

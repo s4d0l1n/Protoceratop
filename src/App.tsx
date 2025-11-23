@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Moon, Sun, Upload, Palette, AlertCircle, CheckCircle } from 'lucide-react'
+import { Moon, Sun, AlertCircle, CheckCircle } from 'lucide-react'
 import { useUIStore } from './stores/uiStore'
 import { useGraphStore } from './stores/graphStore'
 import { FileUpload, CSVFilesList } from './components/FileUpload'
@@ -7,10 +7,14 @@ import { ColumnMapper } from './components/ColumnMapper'
 import { GraphView, GraphControls } from './components/GraphView'
 import { NodeDetailPanel } from './components/NodeDetailPanel'
 import { StyleRulesPanel } from './components/StyleRulesPanel'
+import { CardTemplatePanel } from './components/CardTemplatePanel'
+import { AttributeTemplatePanel } from './components/AttributeTemplatePanel'
+import { EdgeTemplatePanel } from './components/EdgeTemplatePanel'
 import { ProjectIOButtons } from './components/ProjectIO'
+import { Sidebar } from './components/Sidebar'
 
 function App() {
-  const { darkMode, toggleDarkMode, panels, openPanel, error, success, clearMessages } = useUIStore()
+  const { darkMode, toggleDarkMode, panels, error, success, clearMessages } = useUIStore()
   const { nodes, edges } = useGraphStore()
 
   useEffect(() => {
@@ -25,7 +29,7 @@ function App() {
   const hasData = nodes.length > 0
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col">
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col">
       {/* Header */}
       <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800 flex-shrink-0 z-30">
         <div className="flex items-center justify-between px-4 py-3">
@@ -35,7 +39,7 @@ function App() {
                 🦖 Protoceratop
               </div>
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                Threat Hunting Graph Visualization
+                Interactive Graph Visualization & Analysis
               </span>
             </div>
 
@@ -48,24 +52,6 @@ function App() {
 
           <div className="flex items-center space-x-3">
             {hasData && <ProjectIOButtons />}
-
-            <button
-              onClick={() => openPanel('uploadWizard')}
-              className="flex items-center space-x-2 px-4 py-2 bg-cyber-600 hover:bg-cyber-700 text-white rounded-lg transition-colors font-medium"
-            >
-              <Upload className="w-4 h-4" />
-              <span>Upload CSV</span>
-            </button>
-
-            {hasData && (
-              <button
-                onClick={() => openPanel('stylePanel')}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
-              >
-                <Palette className="w-4 h-4" />
-                <span>Style Rules</span>
-              </button>
-            )}
 
             <button
               onClick={toggleDarkMode}
@@ -124,8 +110,8 @@ function App() {
                   Welcome to Protoceratop
                 </h1>
                 <p className="text-lg text-gray-600 dark:text-gray-400">
-                  A powerful, 100% client-side threat hunting graph visualization tool.
-                  Turn your CSVs into interactive graphs instantly!
+                  A powerful, 100% client-side graph visualization tool for data exploration and analysis.
+                  Transform your CSVs into interactive network graphs instantly!
                 </p>
               </div>
 
@@ -165,6 +151,7 @@ function App() {
         ) : (
           /* Graph View */
           <div className="h-full relative">
+            <Sidebar />
             <GraphView />
             <GraphControls />
           </div>
@@ -193,6 +180,9 @@ function App() {
       {panels.columnMapper && <ColumnMapper />}
       {panels.detailPanel && <NodeDetailPanel />}
       {panels.stylePanel && <StyleRulesPanel />}
+      {panels.cardTemplatePanel && <CardTemplatePanel />}
+      {panels.attributeTemplatePanel && <AttributeTemplatePanel />}
+      {panels.edgeTemplatePanel && <EdgeTemplatePanel />}
     </div>
   )
 }
