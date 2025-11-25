@@ -4,8 +4,16 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Toaster, toast } from '@/components/ui/Toast'
 import { UploadPanel } from '@/components/ui/UploadPanel'
 import { ColumnMapper } from '@/components/ui/ColumnMapper'
+import { G6Graph } from '@/components/graph/G6Graph'
 import { useUIStore } from '@/stores/uiStore'
 import { useGraphStore } from '@/stores/graphStore'
+
+/**
+ * Graph view wrapper
+ */
+function GraphView() {
+  return <G6Graph />
+}
 
 /**
  * RaptorGraph - Main Application Component
@@ -83,49 +91,55 @@ function App() {
         />
 
         {/* Content Area */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center max-w-2xl">
-            <h2 className="text-4xl font-bold mb-4 text-slate-100">
-              Welcome to RaptorGraph
-            </h2>
-            <p className="text-lg text-slate-400 mb-8">
-              Your privacy-first, 100% offline graph analysis tool for DFIR investigations.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-              <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
-                <div className="text-cyber-500 font-semibold mb-2 text-lg">
-                  🔒 100% Offline
-                </div>
-                <p className="text-slate-400">
-                  All processing happens in your browser. No data ever leaves your machine.
+        <div className="flex-1 overflow-hidden">
+          {hasData ? (
+            <GraphView />
+          ) : (
+            <div className="h-full flex items-center justify-center p-8">
+              <div className="text-center max-w-2xl">
+                <h2 className="text-4xl font-bold mb-4 text-slate-100">
+                  Welcome to RaptorGraph
+                </h2>
+                <p className="text-lg text-slate-400 mb-8">
+                  Your privacy-first, 100% offline graph analysis tool for DFIR investigations.
                 </p>
-              </div>
-              <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
-                <div className="text-cyber-500 font-semibold mb-2 text-lg">
-                  ⚡ High Performance
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                  <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
+                    <div className="text-cyber-500 font-semibold mb-2 text-lg">
+                      🔒 100% Offline
+                    </div>
+                    <p className="text-slate-400">
+                      All processing happens in your browser. No data ever leaves your machine.
+                    </p>
+                  </div>
+                  <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
+                    <div className="text-cyber-500 font-semibold mb-2 text-lg">
+                      ⚡ High Performance
+                    </div>
+                    <p className="text-slate-400">
+                      Canvas-powered rendering. Handle thousands of nodes with ease.
+                    </p>
+                  </div>
+                  <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
+                    <div className="text-cyber-500 font-semibold mb-2 text-lg">
+                      🎨 Fully Customizable
+                    </div>
+                    <p className="text-slate-400">
+                      Conditional styling, templates, and advanced filtering built-in.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-slate-400">
-                  WebGL-powered rendering. Handle thousands of nodes with ease.
-                </p>
-              </div>
-              <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
-                <div className="text-cyber-500 font-semibold mb-2 text-lg">
-                  🎨 Fully Customizable
+                <div className="mt-8">
+                  <button
+                    onClick={() => handlePanelChange('upload')}
+                    className="px-6 py-3 bg-cyber-500 hover:bg-cyber-600 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Upload CSV to Get Started
+                  </button>
                 </div>
-                <p className="text-slate-400">
-                  Conditional styling, templates, and advanced filtering built-in.
-                </p>
               </div>
             </div>
-            <div className="mt-8">
-              <button
-                onClick={() => handlePanelChange('upload')}
-                className="px-6 py-3 bg-cyber-500 hover:bg-cyber-600 text-white rounded-lg font-medium transition-colors"
-              >
-                Upload CSV to Get Started
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </main>
 
