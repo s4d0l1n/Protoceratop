@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Toaster, toast } from '@/components/ui/Toast'
+import { UploadPanel } from '@/components/ui/UploadPanel'
 import { useUIStore } from '@/stores/uiStore'
 import { useGraphStore } from '@/stores/graphStore'
 
@@ -126,6 +127,9 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* Panels */}
+      <UploadPanel />
     </div>
   )
 }
