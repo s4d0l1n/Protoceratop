@@ -68,6 +68,10 @@ Transform your CSV data into powerful, interactive network graphs—completely o
 - Node.js 18+
 - npm or yarn
 
+**Option 2: Docker**
+- Docker
+- Docker Compose (optional)
+
 ### Installation
 
 #### 💻 Local Development
@@ -86,6 +90,32 @@ npm run dev
 # Build for production
 npm run build
 ```
+
+#### 🐳 Docker Deployment
+
+```bash
+# Clone the repository
+git clone https://github.com/s4d0l1n/Protoceratop.git
+cd Protoceratop
+
+# Option 1: Using Docker Compose (Recommended)
+docker-compose up -d
+
+# Option 2: Using Docker directly
+docker build -t raptorgraph .
+docker run -d -p 8080:80 --name raptorgraph raptorgraph
+
+# Access the application
+open http://localhost:8080
+```
+
+**Docker Features:**
+- Multi-stage build for minimal image size
+- Nginx server with gzip compression
+- Security headers configured
+- Health check endpoint at `/health`
+- SPA routing support
+- Static asset caching
 
 ### Usage
 
@@ -228,7 +258,7 @@ npm run lint     # Lint code
 
 ## 📝 Current Status
 
-### ✅ Completed Features (Tasks 1-13, 15, 18)
+### ✅ Completed Features (Tasks 1-13, 15, 18, 21, 23)
 
 - ✅ **Task 1**: Initial project structure with TypeScript + Vite + Tailwind
 - ✅ **Task 2**: Global layout (header, sidebar, toast system)
@@ -245,17 +275,17 @@ npm run lint     # Lint code
 - ✅ **Task 13**: Global search & filter with fuzzy search, tag filtering, degree filtering, attribute filtering
 - ✅ **Task 15**: Conditional styling rules engine with 10 operators, drag-to-reorder, template/tag application
 - ✅ **Task 18**: Full layout selector with circle, grid, concentric, timeline, and random layouts
+- ✅ **Task 21**: Keyboard shortcuts (Esc, Delete, Ctrl+S, Ctrl+O, Ctrl+F) and loading spinner
+- ✅ **Task 23**: Docker deployment with multi-stage build, nginx, health checks
 
-### 🚧 Pending Features (Tasks 14, 16, 17, 19-24)
+### 🚧 Pending Features (Tasks 14, 16, 17, 19, 20, 22, 24)
 
 - ⏳ Group-by meta-nodes with collapse/expand (Task 14)
 - ⏳ Edge templates and styling (Task 16)
 - ⏳ Per-attribute styling overrides (Task 17)
 - ⏳ Export as high-resolution PNG (Task 19)
 - ⏳ Performance optimization with caching (Task 20)
-- ⏳ Keyboard shortcuts and UX polish (Task 21)
 - ⏳ Enhanced timeline layout features (Task 22)
-- ⏳ Docker deployment configuration (Task 23)
 - ⏳ Final documentation and README (Task 24)
 
 ---
