@@ -4,7 +4,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { toast } from './Toast'
-import type { LayoutType } from '@/types'
+import type { LayoutType, TimelineSortOrder } from '@/types'
 
 interface LayoutOption {
   type: LayoutType
@@ -25,6 +25,12 @@ export function LayoutPanel() {
   const [selectedLayout, setSelectedLayout] = useState<LayoutType>(layoutConfig.type)
   const [swimlaneAttribute, setSwimlaneAttribute] = useState(
     layoutConfig.timelineSwimlaneAttribute || ''
+  )
+  const [verticalSpacing, setVerticalSpacing] = useState(
+    layoutConfig.timelineVerticalSpacing || 120
+  )
+  const [swimlaneSort, setSwimlaneSort] = useState<TimelineSortOrder>(
+    layoutConfig.timelineSwimlaneSort || 'alphabetical'
   )
 
   const isOpen = activePanel === 'layout'
@@ -81,6 +87,8 @@ export function LayoutPanel() {
     setLayoutConfig({
       type: selectedLayout,
       timelineSwimlaneAttribute: selectedLayout === 'timeline' ? swimlaneAttribute : undefined,
+      timelineVerticalSpacing: selectedLayout === 'timeline' ? verticalSpacing : undefined,
+      timelineSwimlaneSort: selectedLayout === 'timeline' ? swimlaneSort : undefined,
     })
     toast.success(`Applied ${layouts.find((l) => l.type === selectedLayout)?.label} layout`)
   }
@@ -143,8 +151,10 @@ export function LayoutPanel() {
 
           {/* Timeline-specific options */}
           {selectedLayout === 'timeline' && (
-            <section className="p-4 bg-dark border border-dark rounded-lg">
+            <section className="p-4 bg-dark border border-dark rounded-lg space-y-4">
               <h3 className="text-lg font-semibold text-slate-100 mb-3">Timeline Options</h3>
+
+              {/* Swimlane Attribute */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Swimlane Attribute (Optional)
@@ -165,6 +175,48 @@ export function LayoutPanel() {
                   Group nodes into horizontal swimlanes by attribute value
                 </p>
               </div>
+
+              {/* Swimlane Sort Order */}
+              {swimlaneAttribute && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Swimlane Sort Order
+                  </label>
+                  <select
+                    value={swimlaneSort}
+                    onChange={(e) => setSwimlaneSort(e.target.value as TimelineSortOrder)}
+                    className="w-full px-3 py-2 bg-dark-secondary border border-dark rounded text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyber-500"
+                  >
+                    <option value="alphabetical">Alphabetical (A-Z)</option>
+                    <option value="count">By Node Count (Most First)</option>
+                    <option value="custom">Custom (Original Order)</option>
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    How swimlanes are ordered vertically
+                  </p>
+                </div>
+              )}
+
+              {/* Vertical Spacing Control */}
+              {swimlaneAttribute && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Vertical Spacing
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="500"
+                    step="10"
+                    value={verticalSpacing}
+                    onChange={(e) => setVerticalSpacing(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-dark-secondary border border-dark rounded text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyber-500"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Minimum spacing between swimlanes (px)
+                  </p>
+                </div>
+              )}
             </section>
           )}
 

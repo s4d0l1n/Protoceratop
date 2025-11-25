@@ -329,6 +329,11 @@ export type LayoutType =
   | 'preset'
 
 /**
+ * Timeline layout sort options
+ */
+export type TimelineSortOrder = 'alphabetical' | 'count' | 'custom'
+
+/**
  * Layout configuration
  */
 export interface LayoutConfig {
@@ -336,6 +341,14 @@ export interface LayoutConfig {
   type: LayoutType
   /** Timeline swimlane attribute (for timeline layout) */
   timelineSwimlaneAttribute?: string
+  /** Vertical spacing between swimlanes (timeline) */
+  timelineVerticalSpacing?: number
+  /** Sort order for swimlanes (timeline) */
+  timelineSwimlaneSort?: TimelineSortOrder
+  /** Time range filter - start timestamp (timeline) */
+  timelineStartTime?: number
+  /** Time range filter - end timestamp (timeline) */
+  timelineEndTime?: number
   /** Custom options */
   options?: Record<string, unknown>
 }

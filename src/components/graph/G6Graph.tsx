@@ -109,6 +109,10 @@ export function G6Graph() {
           width,
           height,
           swimlaneAttribute: layoutConfig.timelineSwimlaneAttribute,
+          verticalSpacing: layoutConfig.timelineVerticalSpacing,
+          swimlaneSort: layoutConfig.timelineSwimlaneSort,
+          startTime: layoutConfig.timelineStartTime,
+          endTime: layoutConfig.timelineEndTime,
         })
         result.positions.forEach((pos, nodeId) => {
           positions.set(nodeId, { ...pos, vx: 0, vy: 0 })

@@ -3,15 +3,19 @@
  * Positions nodes on X-axis by timestamp and groups on Y-axis
  */
 
-import type { GraphNode } from '@/types'
+import type { GraphNode, TimelineSortOrder } from '@/types'
 
 export interface TimelineLayoutOptions {
   /** Attribute to group by for Y-axis swimlanes (optional) */
   swimlaneAttribute?: string
-  /** Spacing between nodes on X-axis */
-  horizontalSpacing?: number
-  /** Spacing between swimlanes on Y-axis */
+  /** Vertical spacing between swimlanes on Y-axis */
   verticalSpacing?: number
+  /** Sort order for swimlanes */
+  swimlaneSort?: TimelineSortOrder
+  /** Start time filter (only show nodes after this timestamp) */
+  startTime?: number
+  /** End time filter (only show nodes before this timestamp) */
+  endTime?: number
   /** Canvas width */
   width: number
   /** Canvas height */
@@ -32,6 +36,10 @@ export function calculateTimelineLayout(
 ): LayoutResult {
   const {
     swimlaneAttribute,
+    verticalSpacing = 120,
+    swimlaneSort = 'alphabetical',
+    startTime,
+    endTime,
     width,
     height,
   } = options
@@ -39,8 +47,17 @@ export function calculateTimelineLayout(
   const positions = new Map<string, { x: number; y: number }>()
   const swimlanes = new Map<string, number>()
 
-  // Filter nodes with timestamps
-  const nodesWithTime = nodes.filter((n) => n.timestamp !== undefined)
+  // Filter nodes with timestamps and apply time range filter
+  let nodesWithTime = nodes.filter((n) => n.timestamp !== undefined)
+
+  // Apply time range filtering
+  if (startTime !== undefined) {
+    nodesWithTime = nodesWithTime.filter((n) => (n.timestamp || 0) >= startTime)
+  }
+  if (endTime !== undefined) {
+    nodesWithTime = nodesWithTime.filter((n) => (n.timestamp || 0) <= endTime)
+  }
+
   const nodesWithoutTime = nodes.filter((n) => n.timestamp === undefined)
 
   if (nodesWithTime.length === 0) {
@@ -84,10 +101,22 @@ export function calculateTimelineLayout(
       groupMap.get(groupKey)!.push(node)
     })
 
-    // Assign Y positions to swimlanes
-    const groups = Array.from(groupMap.keys())
+    // Sort swimlanes
+    let groups = Array.from(groupMap.keys())
+    if (swimlaneSort === 'alphabetical') {
+      groups = groups.sort((a, b) => a.localeCompare(b))
+    } else if (swimlaneSort === 'count') {
+      groups = groups.sort((a, b) => {
+        const aCount = groupMap.get(a)?.length || 0
+        const bCount = groupMap.get(b)?.length || 0
+        return bCount - aCount // Descending order (most nodes first)
+      })
+    }
+    // 'custom' order keeps the original order
+
+    // Assign Y positions to swimlanes with configurable spacing
     const swimlaneCount = groups.length
-    const swimlaneHeight = (height - 100) / swimlaneCount
+    const swimlaneHeight = Math.max(verticalSpacing, (height - 100) / swimlaneCount)
 
     groups.forEach((group, i) => {
       const yPos = 50 + i * swimlaneHeight + swimlaneHeight / 2
