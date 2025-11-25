@@ -18,6 +18,7 @@ export function processCSVFile(file: CSVFile): {
 
   // Find node_id columns
   const nodeIdMappings = file.mapping.filter((m) => m.role === 'node_id')
+
   if (nodeIdMappings.length === 0) {
     throw new Error('No node_id column found in mapping')
   }
@@ -169,8 +170,10 @@ export function processCSVFile(file: CSVFile): {
     }
   }
 
+  const nodes = Array.from(nodeMap.values())
+
   return {
-    nodes: Array.from(nodeMap.values()),
+    nodes,
     edges,
   }
 }

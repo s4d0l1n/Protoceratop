@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/Toast'
  * Hook for processing CSV files and generating graph data
  */
 export function useDataProcessor() {
-  const { files } = useCSVStore()
+  const csvStore = useCSVStore()
   const { nodes, edges, setNodes, setEdges } = useGraphStore()
   const { setLoading } = useUIStore()
 
@@ -17,11 +17,15 @@ export function useDataProcessor() {
     setLoading(true, 'Processing CSV files...')
 
     try {
+      // Get fresh files directly from store to avoid stale closure
+      const files = useCSVStore.getState().files
       let allNodes = [...nodes]
       let allEdges = [...edges]
 
       // Process each CSV file
-      for (const file of files.filter((f) => f.processed)) {
+      const processedFiles = files.filter((f) => f.processed)
+
+      for (const file of processedFiles) {
         try {
           const result = processCSVFile(file)
 
@@ -48,7 +52,7 @@ export function useDataProcessor() {
     } finally {
       setLoading(false)
     }
-  }, [files, nodes, edges, setNodes, setEdges, setLoading])
+  }, [csvStore, nodes, edges, setNodes, setEdges, setLoading])
 
   return {
     processAllFiles,

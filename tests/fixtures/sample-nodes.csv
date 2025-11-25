@@ -1,0 +1,9 @@
+ID,Label,Type,Tags,Timestamp,IP,Gateway
+node-1,Web Server,server,"production,dmz",1609459200000,10.0.1.10,10.0.1.1
+node-2,Database,database,"production,sensitive",1609462800000,10.0.2.20,10.0.2.1
+node-3,Firewall,firewall,infrastructure,1609466400000,10.0.1.1,10.0.0.1
+node-4,Load Balancer,loadbalancer,"production,dmz",1609470000000,10.0.1.5,10.0.1.1
+node-5,API Server,server,"production,api",1609473600000,10.0.3.30,10.0.3.1
+node-6,Cache Server,cache,"production,performance",1609477200000,10.0.4.40,10.0.4.1
+node-7,Monitor,monitoring,infrastructure,1609480800000,10.0.5.50,10.0.5.1
+node-8,Backup Server,backup,"infrastructure,storage",1609484400000,10.0.6.60,10.0.6.1

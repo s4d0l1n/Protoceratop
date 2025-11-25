@@ -118,23 +118,19 @@ export function ColumnMapper() {
       return
     }
 
-    // Save mapping
+    // Save mapping and mark as processed
     updateFileMapping(currentFile.id, mappings)
     markFileAsProcessed(currentFile.id)
 
     toast.success(`Mapping configured for ${currentFile.name}`)
 
-    // Check if more files need processing
-    const remainingFiles = files.filter((f) => !f.processed && f.id !== currentFile.id)
-    if (remainingFiles.length > 0) {
-      toast.info(`${remainingFiles.length} more file(s) need mapping`)
-    } else {
-      // All files processed, generate graph
-      setActivePanel(null)
-      setTimeout(() => {
-        processAllFiles()
-      }, 100)
-    }
+    // Close the mapper
+    setActivePanel(null)
+
+    // Process all files after a short delay to ensure state updates
+    setTimeout(() => {
+      processAllFiles()
+    }, 100)
   }
 
   const previewRows = currentFile.parsed.rows.slice(0, 10)
