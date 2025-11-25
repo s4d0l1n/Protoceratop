@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { Download } from 'lucide-react'
 import { useGraphStore } from '@/stores/graphStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -30,16 +30,45 @@ export function G6Graph() {
   const [swimlanes, setSwimlanes] = useState<Map<string, number>>(new Map())
   const animationRef = useRef<number>()
 
-  // Get visible nodes based on filter
-  const visibleNodes = filteredNodeIds
-    ? nodes.filter((node) => filteredNodeIds.has(node.id))
-    : nodes
+  // Memoize visible nodes to prevent unnecessary recalculations
+  const visibleNodes = useMemo(() => {
+    if (!filteredNodeIds) return nodes
+    return nodes.filter((node) => filteredNodeIds.has(node.id))
+  }, [nodes, filteredNodeIds])
 
-  const handleExport = () => {
+  // Memoize stub count to prevent recalculation on every render
+  const stubCount = useMemo(() => {
+    return nodes.filter((n) => n.isStub).length
+  }, [nodes])
+
+  // Memoize export handler
+  const handleExport = useCallback(() => {
     exportAsPNG(canvasRef.current, 'raptorgraph-export', 2)
-  }
+  }, [exportAsPNG])
 
-  // Initialize node positions
+  // Memoize click handler
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    // Check if click is on a node
+    let clickedNodeId: string | null = null
+    for (const [nodeId, pos] of nodePositions.entries()) {
+      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
+      if (distance < 30) {
+        clickedNodeId = nodeId
+        break
+      }
+    }
+
+    setSelectedNodeId(clickedNodeId)
+  }, [nodePositions, setSelectedNodeId])
+
+  // Initialize node positions with memoized layout calculation
   useEffect(() => {
     if (nodes.length === 0) return
 
@@ -118,37 +147,20 @@ export function G6Graph() {
     }
 
     setNodePositions(positions)
-  }, [nodes, layoutConfig])
+  }, [nodes, edges, layoutConfig])
 
-  // Handle canvas click
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-
-    // Check if click is on a node
-    let clickedNodeId: string | null = null
-    for (const [nodeId, pos] of nodePositions.entries()) {
-      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
-      if (distance < 30) {
-        clickedNodeId = nodeId
-        break
-      }
-    }
-
-    setSelectedNodeId(clickedNodeId)
-  }
-
-  // Render graph
+  // Render graph - optimized to only render when dependencies change
   useEffect(() => {
     if (!canvasRef.current || nodes.length === 0 || nodePositions.size === 0) return
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    // Cancel any existing animation frame
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current)
+    }
 
     const render = () => {
       // Set canvas size
@@ -305,10 +317,9 @@ export function G6Graph() {
           ctx.fillText('STUB', pos.x, pos.y + 32)
         }
       })
-
-      animationRef.current = requestAnimationFrame(render)
     }
 
+    // Render once when dependencies change
     render()
 
     return () => {
@@ -339,10 +350,10 @@ export function G6Graph() {
               <div className="w-4 h-0.5 bg-slate-500" />
               <span>{edges.length} edges</span>
             </div>
-            {nodes.filter((n) => n.isStub).length > 0 && (
+            {stubCount > 0 && (
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-slate-500" />
-                <span>{nodes.filter((n) => n.isStub).length} stubs</span>
+                <span>{stubCount} stubs</span>
               </div>
             )}
           </div>
