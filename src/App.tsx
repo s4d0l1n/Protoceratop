@@ -6,6 +6,7 @@ import { UploadPanel } from '@/components/ui/UploadPanel'
 import { ColumnMapper } from '@/components/ui/ColumnMapper'
 import { NodeDetailPanel } from '@/components/ui/NodeDetailPanel'
 import { CardTemplatePanel } from '@/components/ui/CardTemplatePanel'
+import { EdgeTemplatePanel } from '@/components/ui/EdgeTemplatePanel'
 import { SearchFilterPanel } from '@/components/ui/SearchFilterPanel'
 import { RulesPanel } from '@/components/ui/RulesPanel'
 import { LayoutPanel } from '@/components/ui/LayoutPanel'
@@ -163,6 +164,7 @@ function App() {
       <ColumnMapper />
       <NodeDetailPanel />
       <CardTemplatePanel />
+      <EdgeTemplatePanel />
       <SearchFilterPanel />
       <RulesPanel />
       <LayoutPanel />

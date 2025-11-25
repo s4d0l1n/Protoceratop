@@ -3,6 +3,7 @@ import { Download } from 'lucide-react'
 import { useGraphStore } from '@/stores/graphStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { useTemplateStore } from '@/stores/templateStore'
 import { useGraphExport } from '@/hooks/useGraphExport'
 import { calculateTimelineLayout } from '@/lib/layouts/timelineLayout'
 import { calculateCircleLayout } from '@/lib/layouts/circleLayout'
@@ -25,6 +26,7 @@ export function G6Graph() {
   const { nodes, edges } = useGraphStore()
   const { setSelectedNodeId, selectedNodeId, filteredNodeIds } = useUIStore()
   const { layoutConfig } = useProjectStore()
+  const { getEdgeTemplateById, getDefaultEdgeTemplate } = useTemplateStore()
   const { exportAsPNG } = useGraphExport()
   const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map())
   const [swimlanes, setSwimlanes] = useState<Map<string, number>>(new Map())
@@ -214,33 +216,110 @@ export function G6Graph() {
         const targetPos = nodePositions.get(edge.target)
 
         if (sourcePos && targetPos) {
-          ctx.strokeStyle = '#475569'
-          ctx.lineWidth = 2
+          // Get edge template
+          const template = edge.edgeTemplateId
+            ? getEdgeTemplateById(edge.edgeTemplateId)
+            : getDefaultEdgeTemplate()
+
+          // Apply template or use defaults
+          const edgeColor = template?.color || '#475569'
+          const edgeWidth = template?.width || 2
+          const edgeOpacity = template?.opacity ?? 1
+          const edgeStyle = template?.style || 'solid'
+          const arrowType = template?.arrowType || 'default'
+          const edgeLabel = template?.label || edge.label
+
+          // Set line dash array based on style
+          if (edgeStyle === 'dashed') {
+            ctx.setLineDash([10, 5])
+          } else if (edgeStyle === 'dotted') {
+            ctx.setLineDash([2, 4])
+          } else {
+            ctx.setLineDash([])
+          }
+
+          // Draw edge line
+          ctx.strokeStyle = edgeColor
+          ctx.lineWidth = edgeWidth
+          ctx.globalAlpha = edgeOpacity
 
           ctx.beginPath()
           ctx.moveTo(sourcePos.x, sourcePos.y)
           ctx.lineTo(targetPos.x, targetPos.y)
           ctx.stroke()
 
-          // Draw arrow
-          const angle = Math.atan2(targetPos.y - sourcePos.y, targetPos.x - sourcePos.x)
-          const arrowSize = 8
-          ctx.fillStyle = '#475569'
-          ctx.beginPath()
-          ctx.moveTo(
-            targetPos.x - 30 * Math.cos(angle),
-            targetPos.y - 30 * Math.sin(angle)
-          )
-          ctx.lineTo(
-            targetPos.x - 30 * Math.cos(angle) - arrowSize * Math.cos(angle - Math.PI / 6),
-            targetPos.y - 30 * Math.sin(angle) - arrowSize * Math.sin(angle - Math.PI / 6)
-          )
-          ctx.lineTo(
-            targetPos.x - 30 * Math.cos(angle) - arrowSize * Math.cos(angle + Math.PI / 6),
-            targetPos.y - 30 * Math.sin(angle) - arrowSize * Math.sin(angle + Math.PI / 6)
-          )
-          ctx.closePath()
-          ctx.fill()
+          // Reset line dash
+          ctx.setLineDash([])
+
+          // Draw arrow if not 'none'
+          if (arrowType !== 'none') {
+            const angle = Math.atan2(targetPos.y - sourcePos.y, targetPos.x - sourcePos.x)
+            const nodeRadius = 30
+
+            ctx.fillStyle = edgeColor
+
+            if (arrowType === 'default') {
+              const arrowSize = 8
+              ctx.beginPath()
+              ctx.moveTo(
+                targetPos.x - nodeRadius * Math.cos(angle),
+                targetPos.y - nodeRadius * Math.sin(angle)
+              )
+              ctx.lineTo(
+                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle - Math.PI / 6),
+                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle - Math.PI / 6)
+              )
+              ctx.lineTo(
+                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle + Math.PI / 6),
+                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle + Math.PI / 6)
+              )
+              ctx.closePath()
+              ctx.fill()
+            } else if (arrowType === 'triangle') {
+              const arrowSize = 12
+              ctx.beginPath()
+              ctx.moveTo(
+                targetPos.x - nodeRadius * Math.cos(angle),
+                targetPos.y - nodeRadius * Math.sin(angle)
+              )
+              ctx.lineTo(
+                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle - Math.PI / 8),
+                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle - Math.PI / 8)
+              )
+              ctx.lineTo(
+                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle + Math.PI / 8),
+                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle + Math.PI / 8)
+              )
+              ctx.closePath()
+              ctx.fill()
+            } else if (arrowType === 'circle') {
+              const circleRadius = 4
+              ctx.beginPath()
+              ctx.arc(
+                targetPos.x - nodeRadius * Math.cos(angle),
+                targetPos.y - nodeRadius * Math.sin(angle),
+                circleRadius,
+                0,
+                Math.PI * 2
+              )
+              ctx.fill()
+            }
+          }
+
+          // Draw label if present
+          if (edgeLabel) {
+            const midX = (sourcePos.x + targetPos.x) / 2
+            const midY = (sourcePos.y + targetPos.y) / 2
+
+            ctx.fillStyle = '#e2e8f0'
+            ctx.font = '11px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(edgeLabel, midX, midY - 10)
+          }
+
+          // Reset global alpha
+          ctx.globalAlpha = 1
         }
       })
 

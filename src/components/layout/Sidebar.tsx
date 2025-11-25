@@ -7,6 +7,7 @@ import {
   Search,
   Grid3x3,
   Settings,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +49,13 @@ export function Sidebar({
       icon: <Layers className="w-5 h-5" />,
       label: 'Card Templates',
       onClick: () => onPanelChange('templates'),
+      disabled: !hasData,
+    },
+    {
+      id: 'edge-templates',
+      icon: <ArrowRightLeft className="w-5 h-5" />,
+      label: 'Edge Templates',
+      onClick: () => onPanelChange('edge-templates'),
       disabled: !hasData,
     },
     {
