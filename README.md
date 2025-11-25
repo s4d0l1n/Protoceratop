@@ -68,6 +68,13 @@ Transform your CSV data into powerful, interactive network graphs—completely o
 - Share investigations with team
 - Version control friendly JSON format
 
+### 📸 **Export Functionality**
+- Export graph as high-resolution PNG (2x scale by default)
+- Configurable dimensions for custom resolution
+- Client-side export - no backend required
+- One-click download with automatic filename
+- Export button integrated in graph view
+
 ### ⌨️ **Keyboard Shortcuts**
 - Esc, Delete, Ctrl+S, Ctrl+O, Ctrl+F
 - Efficient navigation and control
@@ -331,7 +338,7 @@ npm run lint     # Lint code
 
 ## 📝 Current Status
 
-### ✅ Completed Features (Tasks 1-13, 15, 18, 21, 23)
+### ✅ Completed Features (Tasks 1-13, 15, 18, 19, 21, 23, 24)
 
 - ✅ **Task 1**: Initial project structure with TypeScript + Vite + Tailwind
 - ✅ **Task 2**: Global layout (header, sidebar, toast system)
@@ -348,18 +355,20 @@ npm run lint     # Lint code
 - ✅ **Task 13**: Global search & filter with fuzzy search, tag filtering, degree filtering, attribute filtering
 - ✅ **Task 15**: Conditional styling rules engine with 10 operators, drag-to-reorder, template/tag application
 - ✅ **Task 18**: Full layout selector with circle, grid, concentric, timeline, and random layouts
+- ✅ **Task 19**: Export graph as high-resolution PNG with configurable scale
 - ✅ **Task 21**: Keyboard shortcuts (Esc, Delete, Ctrl+S, Ctrl+O, Ctrl+F) and loading spinner
 - ✅ **Task 23**: Docker deployment with multi-stage build, nginx, health checks
+- ✅ **Task 24**: Comprehensive documentation with keyboard shortcuts and file format specs
 
-### 🚧 Pending Features (Tasks 14, 16, 17, 19, 20, 22, 24)
+### 🚧 Pending Features (Tasks 14, 16, 17, 20, 22)
 
 - ⏳ Group-by meta-nodes with collapse/expand (Task 14)
 - ⏳ Edge templates and styling (Task 16)
 - ⏳ Per-attribute styling overrides (Task 17)
-- ⏳ Export as high-resolution PNG (Task 19)
 - ⏳ Performance optimization with caching (Task 20)
 - ⏳ Enhanced timeline layout features (Task 22)
-- ⏳ Final documentation and README (Task 24)
+
+**Project Status: 20 of 24 tasks completed (83%)**
 
 ---
 
