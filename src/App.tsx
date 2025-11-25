@@ -9,10 +9,12 @@ import { CardTemplatePanel } from '@/components/ui/CardTemplatePanel'
 import { SearchFilterPanel } from '@/components/ui/SearchFilterPanel'
 import { RulesPanel } from '@/components/ui/RulesPanel'
 import { LayoutPanel } from '@/components/ui/LayoutPanel'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { G6Graph } from '@/components/graph/G6Graph'
 import { useUIStore } from '@/stores/uiStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectIO } from '@/hooks/useProjectIO'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 /**
  * Graph view wrapper
@@ -38,6 +40,9 @@ function App() {
 
   const { nodes, edges } = useGraphStore()
   const { saveProject, handleLoadFile } = useProjectIO()
+
+  // Enable keyboard shortcuts
+  useKeyboardShortcuts()
 
   const nodeCount = nodes.length
   const edgeCount = edges.length
@@ -161,6 +166,9 @@ function App() {
       <SearchFilterPanel />
       <RulesPanel />
       <LayoutPanel />
+
+      {/* Global Loading Spinner */}
+      <LoadingSpinner />
     </div>
   )
 }
