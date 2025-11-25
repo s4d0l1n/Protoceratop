@@ -1,42 +1,123 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { Header } from '@/components/layout/Header'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { Toaster, toast } from '@/components/ui/Toast'
 
 /**
  * RaptorGraph - Main Application Component
  * 100% offline, privacy-first DFIR graph analysis tool
  */
 function App() {
+  const [darkMode, setDarkMode] = useState(true)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [activePanel, setActivePanel] = useState<string | null>(null)
+
+  // Mock data for testing - will be replaced with real stores
+  const [nodeCount] = useState(0)
+  const [edgeCount] = useState(0)
+
   useEffect(() => {
     // Ensure dark mode is applied
-    document.documentElement.classList.add('dark')
-  }, [])
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [darkMode])
+
+  const handleToggleDarkMode = () => {
+    setDarkMode(!darkMode)
+  }
+
+  const handleSave = () => {
+    if (nodeCount === 0) return
+    toast.success('Project saved successfully!')
+  }
+
+  const handleLoad = () => {
+    toast.info('Select a .raptorjson file to load')
+  }
+
+  const handlePanelChange = (panelId: string) => {
+    setActivePanel(activePanel === panelId ? null : panelId)
+  }
+
+  const hasData = nodeCount > 0
 
   return (
     <div className="h-screen w-screen bg-dark text-slate-100 flex flex-col overflow-hidden">
-      {/* Header Placeholder */}
-      <header className="h-16 bg-dark-secondary border-b border-dark flex items-center px-6">
-        <h1 className="text-2xl font-bold text-cyber-500">🦖 RaptorGraph</h1>
-        <p className="ml-4 text-sm text-slate-400">
-          100% Offline DFIR Graph Analysis
-        </p>
-      </header>
+      {/* Toast Container */}
+      <Toaster
+        position="top-right"
+        theme={darkMode ? 'dark' : 'light'}
+        richColors
+        closeButton
+      />
+
+      {/* Header */}
+      <Header
+        nodeCount={nodeCount}
+        edgeCount={edgeCount}
+        darkMode={darkMode}
+        onToggleDarkMode={handleToggleDarkMode}
+        onSave={handleSave}
+        onLoad={handleLoad}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 flex overflow-hidden">
-        {/* Sidebar Placeholder */}
-        <aside className="w-60 bg-dark-secondary border-r border-dark">
-          <div className="p-4 text-slate-400 text-sm">
-            Sidebar (Task 2)
-          </div>
-        </aside>
+        {/* Sidebar */}
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          activePanel={activePanel}
+          onPanelChange={handlePanelChange}
+          hasData={hasData}
+        />
 
         {/* Content Area */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">Welcome to RaptorGraph</h2>
-            <p className="text-slate-400 max-w-md">
-              Your privacy-first, offline graph analysis tool for DFIR investigations.
-              Upload CSV files to begin.
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center max-w-2xl">
+            <h2 className="text-4xl font-bold mb-4 text-slate-100">
+              Welcome to RaptorGraph
+            </h2>
+            <p className="text-lg text-slate-400 mb-8">
+              Your privacy-first, 100% offline graph analysis tool for DFIR investigations.
             </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+              <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
+                <div className="text-cyber-500 font-semibold mb-2 text-lg">
+                  🔒 100% Offline
+                </div>
+                <p className="text-slate-400">
+                  All processing happens in your browser. No data ever leaves your machine.
+                </p>
+              </div>
+              <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
+                <div className="text-cyber-500 font-semibold mb-2 text-lg">
+                  ⚡ High Performance
+                </div>
+                <p className="text-slate-400">
+                  WebGL-powered rendering. Handle thousands of nodes with ease.
+                </p>
+              </div>
+              <div className="p-6 bg-dark-secondary rounded-lg border border-dark">
+                <div className="text-cyber-500 font-semibold mb-2 text-lg">
+                  🎨 Fully Customizable
+                </div>
+                <p className="text-slate-400">
+                  Conditional styling, templates, and advanced filtering built-in.
+                </p>
+              </div>
+            </div>
+            <div className="mt-8">
+              <button
+                onClick={() => handlePanelChange('upload')}
+                className="px-6 py-3 bg-cyber-500 hover:bg-cyber-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Upload CSV to Get Started
+              </button>
+            </div>
           </div>
         </div>
       </main>
