@@ -228,7 +228,7 @@ npm run lint     # Lint code
 
 ## 📝 Current Status
 
-### ✅ Completed Features (Tasks 1-11)
+### ✅ Completed Features (Tasks 1-11, 12, 13, 15)
 
 - ✅ **Task 1**: Initial project structure with TypeScript + Vite + Tailwind
 - ✅ **Task 2**: Global layout (header, sidebar, toast system)
@@ -241,20 +241,22 @@ npm run lint     # Lint code
 - ✅ **Task 9**: Node detail panel with full information display
 - ✅ **Task 10**: Timeline layout with swimlanes
 - ✅ **Task 11**: Full project save/load (.raptorjson format)
+- ✅ **Task 12**: Card template editor with CRUD interface, emoji/image picker, attribute display configuration
+- ✅ **Task 13**: Global search & filter with fuzzy search, tag filtering, degree filtering, attribute filtering
+- ✅ **Task 15**: Conditional styling rules engine with 10 operators, drag-to-reorder, template/tag application
 
-### 🚧 Pending Features (Tasks 12-24)
+### 🚧 Pending Features (Tasks 14, 16-24)
 
-- ⏳ Card template editor (CRUD panel)
-- ⏳ Global search & filter
-- ⏳ Group-by meta-nodes with collapse/expand
-- ⏳ Conditional styling rules engine
-- ⏳ Edge templates and styling
-- ⏳ Per-attribute styling overrides
-- ⏳ Full layout selector (dagre, timeline, grid, etc.)
-- ⏳ Export as high-resolution PNG
-- ⏳ Performance optimization with caching
-- ⏳ Keyboard shortcuts
-- ⏳ Docker deployment configuration
+- ⏳ Group-by meta-nodes with collapse/expand (Task 14)
+- ⏳ Edge templates and styling (Task 16)
+- ⏳ Per-attribute styling overrides (Task 17)
+- ⏳ Full layout selector (fcose, dagre, timeline, grid, etc.) (Task 18)
+- ⏳ Export as high-resolution PNG (Task 19)
+- ⏳ Performance optimization with caching (Task 20)
+- ⏳ Keyboard shortcuts and UX polish (Task 21)
+- ⏳ Enhanced timeline layout (Task 22)
+- ⏳ Docker deployment configuration (Task 23)
+- ⏳ Final documentation and README (Task 24)
 
 ---
 
