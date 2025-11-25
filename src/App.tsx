@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Toaster, toast } from '@/components/ui/Toast'
 import { UploadPanel } from '@/components/ui/UploadPanel'
+import { ColumnMapper } from '@/components/ui/ColumnMapper'
 import { useUIStore } from '@/stores/uiStore'
 import { useGraphStore } from '@/stores/graphStore'
 
@@ -130,6 +131,7 @@ function App() {
 
       {/* Panels */}
       <UploadPanel />
+      <ColumnMapper />
     </div>
   )
 }

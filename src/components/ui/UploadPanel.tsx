@@ -56,13 +56,7 @@ export function UploadPanel() {
           </button>
           {hasUnprocessedFiles && (
             <button
-              onClick={() => {
-                // Will open column mapper for first unprocessed file
-                const firstUnprocessed = files.find((f) => !f.processed)
-                if (firstUnprocessed) {
-                  setActivePanel('column-mapper')
-                }
-              }}
+              onClick={() => setActivePanel('column-mapper')}
               className="px-4 py-2 rounded-lg bg-cyber-500 hover:bg-cyber-600 text-white font-medium transition-colors"
             >
               Configure Mapping
