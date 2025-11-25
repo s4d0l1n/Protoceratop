@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { Download } from 'lucide-react'
 import { useGraphStore } from '@/stores/graphStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { useGraphExport } from '@/hooks/useGraphExport'
 import { calculateTimelineLayout } from '@/lib/layouts/timelineLayout'
 import { calculateCircleLayout } from '@/lib/layouts/circleLayout'
 import { calculateGridLayout } from '@/lib/layouts/gridLayout'
@@ -23,6 +25,7 @@ export function G6Graph() {
   const { nodes, edges } = useGraphStore()
   const { setSelectedNodeId, selectedNodeId, filteredNodeIds } = useUIStore()
   const { layoutConfig } = useProjectStore()
+  const { exportAsPNG } = useGraphExport()
   const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map())
   const [swimlanes, setSwimlanes] = useState<Map<string, number>>(new Map())
   const animationRef = useRef<number>()
@@ -31,6 +34,10 @@ export function G6Graph() {
   const visibleNodes = filteredNodeIds
     ? nodes.filter((node) => filteredNodeIds.has(node.id))
     : nodes
+
+  const handleExport = () => {
+    exportAsPNG(canvasRef.current, 'raptorgraph-export', 2)
+  }
 
   // Initialize node positions
   useEffect(() => {
@@ -340,6 +347,18 @@ export function G6Graph() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Export button */}
+      {nodes.length > 0 && (
+        <button
+          onClick={handleExport}
+          className="absolute top-4 right-4 px-3 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-colors flex items-center gap-2"
+          title="Export graph as PNG (2x resolution)"
+        >
+          <Download className="w-4 h-4" />
+          <span>Export PNG</span>
+        </button>
       )}
 
       {/* Graph Controls */}
