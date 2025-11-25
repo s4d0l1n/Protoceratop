@@ -228,7 +228,7 @@ npm run lint     # Lint code
 
 ## 📝 Current Status
 
-### ✅ Completed Features (Tasks 1-11, 12, 13, 15)
+### ✅ Completed Features (Tasks 1-13, 15, 18)
 
 - ✅ **Task 1**: Initial project structure with TypeScript + Vite + Tailwind
 - ✅ **Task 2**: Global layout (header, sidebar, toast system)
@@ -244,17 +244,17 @@ npm run lint     # Lint code
 - ✅ **Task 12**: Card template editor with CRUD interface, emoji/image picker, attribute display configuration
 - ✅ **Task 13**: Global search & filter with fuzzy search, tag filtering, degree filtering, attribute filtering
 - ✅ **Task 15**: Conditional styling rules engine with 10 operators, drag-to-reorder, template/tag application
+- ✅ **Task 18**: Full layout selector with circle, grid, concentric, timeline, and random layouts
 
-### 🚧 Pending Features (Tasks 14, 16-24)
+### 🚧 Pending Features (Tasks 14, 16, 17, 19-24)
 
 - ⏳ Group-by meta-nodes with collapse/expand (Task 14)
 - ⏳ Edge templates and styling (Task 16)
 - ⏳ Per-attribute styling overrides (Task 17)
-- ⏳ Full layout selector (fcose, dagre, timeline, grid, etc.) (Task 18)
 - ⏳ Export as high-resolution PNG (Task 19)
 - ⏳ Performance optimization with caching (Task 20)
 - ⏳ Keyboard shortcuts and UX polish (Task 21)
-- ⏳ Enhanced timeline layout (Task 22)
+- ⏳ Enhanced timeline layout features (Task 22)
 - ⏳ Docker deployment configuration (Task 23)
 - ⏳ Final documentation and README (Task 24)
 
