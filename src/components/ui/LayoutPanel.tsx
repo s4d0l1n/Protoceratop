@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { X, Circle, Grid3x3, Target, Clock, Shuffle } from 'lucide-react'
+import { X, Circle, Grid3x3, Target, Clock, GitBranch, Radio, Network } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGraphStore } from '@/stores/graphStore'
@@ -46,22 +46,22 @@ export function LayoutPanel() {
 
   const layouts: LayoutOption[] = [
     {
-      type: 'circle',
-      label: 'Circle',
-      description: 'Nodes arranged in a circular pattern',
-      icon: <Circle className="w-6 h-6" />,
+      type: 'force',
+      label: 'Force-Directed',
+      description: 'Organic layout with minimal clustering using physics simulation',
+      icon: <Network className="w-6 h-6" />,
     },
     {
-      type: 'grid',
-      label: 'Grid',
-      description: 'Nodes arranged in a grid pattern',
-      icon: <Grid3x3 className="w-6 h-6" />,
+      type: 'tree',
+      label: 'Hierarchical Tree',
+      description: 'Displays parent-child relationships in a tree structure',
+      icon: <GitBranch className="w-6 h-6" />,
     },
     {
-      type: 'concentric',
-      label: 'Concentric',
-      description: 'Nodes in concentric circles based on degree',
-      icon: <Target className="w-6 h-6" />,
+      type: 'radial',
+      label: 'Radial',
+      description: 'Hub nodes in center with connections radiating outward',
+      icon: <Radio className="w-6 h-6" />,
     },
     {
       type: 'timeline',
@@ -70,10 +70,22 @@ export function LayoutPanel() {
       icon: <Clock className="w-6 h-6" />,
     },
     {
-      type: 'fcose',
-      label: 'Force',
-      description: 'Force-directed layout (random fallback)',
-      icon: <Shuffle className="w-6 h-6" />,
+      type: 'concentric',
+      label: 'Concentric',
+      description: 'Nodes in concentric circles based on degree',
+      icon: <Target className="w-6 h-6" />,
+    },
+    {
+      type: 'circle',
+      label: 'Circle',
+      description: 'Nodes arranged in a circular pattern',
+      icon: <Circle className="w-6 h-6" />,
+    },
+    {
+      type: 'grid',
+      label: 'Grid',
+      description: 'Nodes arranged in a uniform grid pattern',
+      icon: <Grid3x3 className="w-6 h-6" />,
     },
   ]
 

@@ -320,6 +320,9 @@ export interface StyleRule {
  * Graph layout types
  */
 export type LayoutType =
+  | 'force'
+  | 'tree'
+  | 'radial'
   | 'fcose'
   | 'dagre'
   | 'timeline'

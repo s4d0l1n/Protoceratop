@@ -9,7 +9,9 @@ import { calculateTimelineLayout } from '@/lib/layouts/timelineLayout'
 import { calculateCircleLayout } from '@/lib/layouts/circleLayout'
 import { calculateGridLayout } from '@/lib/layouts/gridLayout'
 import { calculateConcentricLayout } from '@/lib/layouts/concentricLayout'
-import { calculateRandomLayout } from '@/lib/layouts/randomLayout'
+import { calculateForceLayout } from '@/lib/layouts/forceLayout'
+import { calculateTreeLayout } from '@/lib/layouts/treeLayout'
+import { calculateRadialLayout } from '@/lib/layouts/radialLayout'
 import { getVisibleNodesWithGrouping, calculateMetaNodePosition } from '@/lib/grouping'
 import { evaluateNodeRules, evaluateEdgeRules } from '@/lib/styleEvaluator'
 import { useRulesStore } from '@/stores/rulesStore'
@@ -254,13 +256,62 @@ export function G6Graph() {
         break
       }
 
+      case 'force': {
+        const result = calculateForceLayout(nodes, edges, {
+          width,
+          height,
+          iterations: 150,
+          repulsionStrength: 8000,
+          attractionStrength: 0.015,
+          centerGravity: 0.05,
+        })
+        result.positions.forEach((pos, nodeId) => {
+          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
+        })
+        setSwimlanes(new Map())
+        break
+      }
+
+      case 'tree': {
+        const result = calculateTreeLayout(nodes, edges, {
+          width,
+          height,
+          direction: 'vertical',
+          levelSpacing: 150,
+          nodeSpacing: 120,
+        })
+        result.positions.forEach((pos, nodeId) => {
+          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
+        })
+        setSwimlanes(new Map())
+        break
+      }
+
+      case 'radial': {
+        const result = calculateRadialLayout(nodes, edges, {
+          width,
+          height,
+          innerRadius: 120,
+          radiusStep: 150,
+        })
+        result.positions.forEach((pos, nodeId) => {
+          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
+        })
+        setSwimlanes(new Map())
+        break
+      }
+
       case 'preset':
       case 'fcose':
       case 'dagre':
         // These would require additional libraries or custom implementation
-        // Fall back to random layout for now
+        // Fall back to force layout now
         {
-          const result = calculateRandomLayout(nodes, { width, height })
+          const result = calculateForceLayout(nodes, edges, {
+            width,
+            height,
+            iterations: 150,
+          })
           result.positions.forEach((pos, nodeId) => {
             positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
           })
