@@ -11,6 +11,8 @@ import { calculateGridLayout } from '@/lib/layouts/gridLayout'
 import { calculateConcentricLayout } from '@/lib/layouts/concentricLayout'
 import { calculateRandomLayout } from '@/lib/layouts/randomLayout'
 import { getVisibleNodesWithGrouping, calculateMetaNodePosition } from '@/lib/grouping'
+import { evaluateNodeRules, evaluateEdgeRules } from '@/lib/styleEvaluator'
+import { useRulesStore } from '@/stores/rulesStore'
 
 interface NodePosition {
   x: number
@@ -29,6 +31,7 @@ export function G6Graph() {
   const { layoutConfig } = useProjectStore()
   const { getEdgeTemplateById, getDefaultEdgeTemplate, getCardTemplateById } = useTemplateStore()
   const { exportAsPNG } = useGraphExport()
+  const { getEnabledRules } = useRulesStore()
   const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map())
   const [metaNodePositions, setMetaNodePositions] = useState<Map<string, NodePosition>>(new Map())
   const [swimlanes, setSwimlanes] = useState<Map<string, number>>(new Map())
@@ -367,9 +370,14 @@ export function G6Graph() {
         const targetPos = nodePositions.get(edge.target)
 
         if (sourcePos && targetPos) {
-          // Get edge template
-          const template = edge.edgeTemplateId
-            ? getEdgeTemplateById(edge.edgeTemplateId)
+          // Evaluate rules for this edge
+          const rules = getEnabledRules()
+          const ruleResult = evaluateEdgeRules(edge, rules)
+
+          // Get edge template (rule result takes priority)
+          const templateId = ruleResult.edgeTemplateId || edge.edgeTemplateId
+          const template = templateId
+            ? getEdgeTemplateById(templateId)
             : getDefaultEdgeTemplate()
 
           // Apply template or use defaults
@@ -482,7 +490,7 @@ export function G6Graph() {
         if (!pos) return
 
         // Get contained nodes
-        const containedNodes = nodes.filter((n) => metaNode.nodeIds.includes(n.id))
+        const containedNodes = nodes.filter((n) => metaNode.childNodeIds.includes(n.id))
 
         // Calculate size based on number of contained nodes
         const nodeCount = containedNodes.length
@@ -646,9 +654,14 @@ export function G6Graph() {
         const label = node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label
         ctx.fillText(label, pos.x, pos.y + 8)
 
-        // Get card template and render attributes if configured
-        const cardTemplate = node.cardTemplateId
-          ? getCardTemplateById(node.cardTemplateId)
+        // Evaluate rules for this node
+        const rules = getEnabledRules()
+        const ruleResult = evaluateNodeRules(node, rules)
+
+        // Get card template (rule result takes priority over node.cardTemplateId)
+        const templateId = ruleResult.cardTemplateId || node.cardTemplateId
+        const cardTemplate = templateId
+          ? getCardTemplateById(templateId)
           : undefined
 
         if (cardTemplate?.attributeDisplays && cardTemplate.attributeDisplays.length > 0) {
