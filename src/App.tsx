@@ -8,6 +8,7 @@ import { NodeDetailPanel } from '@/components/ui/NodeDetailPanel'
 import { G6Graph } from '@/components/graph/G6Graph'
 import { useUIStore } from '@/stores/uiStore'
 import { useGraphStore } from '@/stores/graphStore'
+import { useProjectIO } from '@/hooks/useProjectIO'
 
 /**
  * Graph view wrapper
@@ -32,6 +33,7 @@ function App() {
   } = useUIStore()
 
   const { nodes, edges } = useGraphStore()
+  const { saveProject, handleLoadFile } = useProjectIO()
 
   const nodeCount = nodes.length
   const edgeCount = edges.length
@@ -46,12 +48,15 @@ function App() {
   }, [darkMode])
 
   const handleSave = () => {
-    if (nodeCount === 0) return
-    toast.success('Project saved successfully!')
+    if (nodeCount === 0) {
+      toast.error('No data to save')
+      return
+    }
+    saveProject()
   }
 
   const handleLoad = () => {
-    toast.info('Select a .raptorjson file to load')
+    handleLoadFile()
   }
 
   const handlePanelChange = (panelId: string) => {
