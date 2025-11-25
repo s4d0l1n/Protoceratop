@@ -1,15 +1,16 @@
 import { create } from 'zustand'
-import type { GraphNode, GraphEdge } from '@/types'
+import type { GraphNode, GraphEdge, MetaNode } from '@/types'
 
 /**
  * Graph data store
- * Manages nodes and edges for the visualization
+ * Manages nodes, edges, and meta-nodes for the visualization
  */
 
 interface GraphState {
   // Graph data
   nodes: GraphNode[]
   edges: GraphEdge[]
+  metaNodes: MetaNode[]
 
   // Actions
   setNodes: (nodes: GraphNode[]) => void
@@ -26,12 +27,18 @@ interface GraphState {
   getConnectedEdges: (nodeId: string) => GraphEdge[]
   mergeNodes: (nodes: GraphNode[]) => void
   mergeEdges: (edges: GraphEdge[]) => void
+
+  // Meta-node actions
+  setMetaNodes: (metaNodes: MetaNode[]) => void
+  toggleMetaNodeCollapse: (metaNodeId: string) => void
+  getMetaNodeById: (metaNodeId: string) => MetaNode | undefined
 }
 
 export const useGraphStore = create<GraphState>((set, get) => ({
   // Initial state
   nodes: [],
   edges: [],
+  metaNodes: [],
 
   // Actions
   setNodes: (nodes) =>
@@ -76,7 +83,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     })),
 
   clearGraph: () =>
-    set({ nodes: [], edges: [] }),
+    set({ nodes: [], edges: [], metaNodes: [] }),
 
   getNodeById: (nodeId) =>
     get().nodes.find((n) => n.id === nodeId),
@@ -122,4 +129,18 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         edges: [...state.edges, ...edgesToAdd],
       }
     }),
+
+  // Meta-node actions
+  setMetaNodes: (metaNodes) =>
+    set({ metaNodes }),
+
+  toggleMetaNodeCollapse: (metaNodeId) =>
+    set((state) => ({
+      metaNodes: state.metaNodes.map((mn) =>
+        mn.id === metaNodeId ? { ...mn, collapsed: !mn.collapsed } : mn
+      ),
+    })),
+
+  getMetaNodeById: (metaNodeId) =>
+    get().metaNodes.find((mn) => mn.id === metaNodeId),
 }))

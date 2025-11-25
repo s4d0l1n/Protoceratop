@@ -53,6 +53,39 @@ export interface GraphEdge {
   edgeTemplateId?: string
 }
 
+/**
+ * Meta-node (group) configuration
+ */
+export interface MetaNode {
+  /** Unique identifier for the meta-node */
+  id: string
+  /** Display label for the group */
+  label: string
+  /** Attribute to group by */
+  groupByAttribute: string
+  /** Attribute value for this group */
+  groupValue: string
+  /** IDs of nodes contained in this group */
+  childNodeIds: string[]
+  /** Whether the group is currently collapsed */
+  collapsed: boolean
+  /** Position (inherited from layout) */
+  x?: number
+  y?: number
+}
+
+/**
+ * Grouping configuration
+ */
+export interface GroupingConfig {
+  /** Whether grouping is enabled */
+  enabled: boolean
+  /** Attribute to group by */
+  groupByAttribute?: string
+  /** Whether to auto-collapse groups on creation */
+  autoCollapse: boolean
+}
+
 // ============================================================================
 // CSV IMPORT AND MAPPING
 // ============================================================================
@@ -339,4 +372,8 @@ export interface ProjectState {
   styleRules: StyleRule[]
   /** Layout configuration */
   layoutConfig: LayoutConfig
+  /** Grouping configuration */
+  groupingConfig?: GroupingConfig
+  /** Meta-nodes (groups) */
+  metaNodes?: MetaNode[]
 }

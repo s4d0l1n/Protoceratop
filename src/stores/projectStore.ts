@@ -1,9 +1,9 @@
 import { create } from 'zustand'
-import type { LayoutConfig } from '@/types'
+import type { LayoutConfig, GroupingConfig } from '@/types'
 
 /**
  * Project metadata and configuration store
- * Handles project-level settings and layout configuration
+ * Handles project-level settings, layout, and grouping configuration
  */
 
 interface ProjectState {
@@ -17,17 +17,26 @@ interface ProjectState {
   // Layout configuration
   layoutConfig: LayoutConfig
 
+  // Grouping configuration
+  groupingConfig: GroupingConfig
+
   // Actions
   setProjectName: (name: string) => void
   setDescription: (description: string) => void
   updateModifiedAt: () => void
   setLayoutConfig: (config: LayoutConfig) => void
+  setGroupingConfig: (config: GroupingConfig) => void
   resetProject: () => void
 }
 
 const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
   type: 'fcose',
   options: {},
+}
+
+const DEFAULT_GROUPING_CONFIG: GroupingConfig = {
+  enabled: false,
+  autoCollapse: true,
 }
 
 export const useProjectStore = create<ProjectState>((set) => ({
@@ -38,6 +47,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
   createdAt: Date.now(),
   modifiedAt: Date.now(),
   layoutConfig: DEFAULT_LAYOUT_CONFIG,
+  groupingConfig: DEFAULT_GROUPING_CONFIG,
 
   // Actions
   setProjectName: (name) =>
@@ -52,6 +62,9 @@ export const useProjectStore = create<ProjectState>((set) => ({
   setLayoutConfig: (config) =>
     set({ layoutConfig: config, modifiedAt: Date.now() }),
 
+  setGroupingConfig: (config) =>
+    set({ groupingConfig: config, modifiedAt: Date.now() }),
+
   resetProject: () =>
     set({
       projectName: 'Untitled Project',
@@ -60,5 +73,6 @@ export const useProjectStore = create<ProjectState>((set) => ({
       createdAt: Date.now(),
       modifiedAt: Date.now(),
       layoutConfig: DEFAULT_LAYOUT_CONFIG,
+      groupingConfig: DEFAULT_GROUPING_CONFIG,
     }),
 }))
