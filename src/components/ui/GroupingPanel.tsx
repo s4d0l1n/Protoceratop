@@ -7,8 +7,8 @@ import { generateMetaNodes } from '@/lib/grouping'
 import { toast } from './Toast'
 
 /**
- * Grouping configuration panel
- * UI for enabling and configuring node grouping by attributes
+ * Node combination configuration panel
+ * UI for enabling and configuring node combination by attributes
  */
 export function GroupingPanel() {
   const { activePanel, setActivePanel } = useUIStore()
@@ -23,7 +23,7 @@ export function GroupingPanel() {
 
   const isOpen = activePanel === 'grouping'
 
-  // Get available attributes for grouping
+  // Get available attributes for combining
   const availableAttributes = useMemo(() => {
     const attrSet = new Set<string>()
     nodes.forEach((node) => {
@@ -40,7 +40,7 @@ export function GroupingPanel() {
 
   const handleApplyGrouping = () => {
     if (enabled && !groupByAttribute) {
-      toast.error('Please select an attribute to group by')
+      toast.error('Please select an attribute to combine by')
       return
     }
 
@@ -57,11 +57,11 @@ export function GroupingPanel() {
       const metaNodes = generateMetaNodes(nodes, newConfig)
       setMetaNodes(metaNodes)
       toast.success(
-        `Grouping applied: ${metaNodes.length} group${metaNodes.length !== 1 ? 's' : ''} created`
+        `Combined nodes: ${metaNodes.length} combination${metaNodes.length !== 1 ? 's' : ''} created`
       )
     } else {
       setMetaNodes([])
-      toast.success('Grouping disabled')
+      toast.success('Node combinations cleared')
     }
 
     handleClose()
@@ -69,7 +69,7 @@ export function GroupingPanel() {
 
   const handlePreview = () => {
     if (!enabled || !groupByAttribute) {
-      toast.error('Please enable grouping and select an attribute')
+      toast.error('Please enable combining and select an attribute')
       return
     }
 
@@ -82,10 +82,10 @@ export function GroupingPanel() {
     const metaNodes = generateMetaNodes(nodes, tempConfig)
 
     if (metaNodes.length === 0) {
-      toast.info('No groups would be created (need 2+ nodes per group)')
+      toast.info('No combinations would be created (need 2+ nodes per combination)')
     } else {
       toast.info(
-        `Preview: ${metaNodes.length} group${metaNodes.length !== 1 ? 's' : ''} would be created`
+        `Preview: ${metaNodes.length} combination${metaNodes.length !== 1 ? 's' : ''} would be created`
       )
     }
   }
@@ -96,9 +96,9 @@ export function GroupingPanel() {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-dark">
           <div>
-            <h2 className="text-xl font-bold text-slate-100">Node Grouping</h2>
+            <h2 className="text-xl font-bold text-slate-100">Combine Nodes</h2>
             <p className="text-sm text-slate-400 mt-1">
-              Group nodes by attribute values into collapsible meta-nodes
+              Combine nodes by attribute values into collapsible containers
             </p>
           </div>
           <button
@@ -112,15 +112,15 @@ export function GroupingPanel() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Enable Grouping */}
+          {/* Enable Combining */}
           <div className="flex items-center justify-between p-4 bg-dark border border-dark rounded-lg">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Layers2 className="w-5 h-5 text-cyber-500" />
-                <span className="font-semibold text-slate-100">Enable Grouping</span>
+                <span className="font-semibold text-slate-100">Enable Combining</span>
               </div>
               <p className="text-sm text-slate-400">
-                Group nodes with the same attribute value together
+                Combine nodes with the same attribute value together
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -134,11 +134,11 @@ export function GroupingPanel() {
             </label>
           </div>
 
-          {/* Group By Attribute */}
+          {/* Combine By Attribute */}
           {enabled && (
             <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-300">
-                Group By Attribute *
+                Combine By Attribute *
               </label>
               <select
                 value={groupByAttribute}
@@ -153,7 +153,7 @@ export function GroupingPanel() {
                 ))}
               </select>
               <p className="text-xs text-slate-500">
-                Nodes with the same value for this attribute will be grouped together
+                Nodes with the same value for this attribute will be combined together
               </p>
             </div>
           )}
@@ -173,10 +173,10 @@ export function GroupingPanel() {
                   htmlFor="autoCollapse"
                   className="font-medium text-slate-200 cursor-pointer"
                 >
-                  Auto-Collapse Groups
+                  Auto-Collapse Combinations
                 </label>
                 <p className="text-sm text-slate-400 mt-1">
-                  Automatically collapse groups when created (can be expanded by clicking)
+                  Automatically collapse combinations when created (can be expanded by clicking)
                 </p>
               </div>
             </div>
@@ -184,14 +184,14 @@ export function GroupingPanel() {
 
           {/* Info Box */}
           <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-            <div className="font-medium text-blue-400 mb-2">How Grouping Works</div>
+            <div className="font-medium text-blue-400 mb-2">How Node Combining Works</div>
             <ul className="text-sm text-slate-300 space-y-1.5">
-              <li>• Nodes with the same attribute value are grouped into meta-nodes</li>
-              <li>• Only groups with 2+ nodes are created</li>
-              <li>• Click meta-nodes to expand/collapse and see member nodes</li>
-              <li>• Edges are preserved and connect to/from meta-nodes</li>
+              <li>• Nodes with the same attribute value are combined into container nodes</li>
+              <li>• Only combinations with 2+ nodes are created</li>
+              <li>• Click containers to expand/collapse and see contained nodes</li>
+              <li>• Edges are preserved and connect to/from containers</li>
               <li>
-                • Multi-value attributes (arrays) create membership in multiple groups
+                • Multi-value attributes (arrays) create membership in multiple combinations
               </li>
             </ul>
           </div>
@@ -204,7 +204,7 @@ export function GroupingPanel() {
             disabled={!enabled || !groupByAttribute}
             className="px-4 py-2 bg-dark-tertiary hover:bg-slate-700 disabled:bg-dark disabled:text-slate-600 disabled:cursor-not-allowed text-slate-300 rounded-lg transition-colors"
           >
-            Preview Groups
+            Preview Combinations
           </button>
           <div className="flex items-center gap-3">
             <button
@@ -217,7 +217,7 @@ export function GroupingPanel() {
               onClick={handleApplyGrouping}
               className="px-4 py-2 bg-cyber-500 hover:bg-cyber-600 text-white rounded-lg transition-colors font-medium"
             >
-              Apply Grouping
+              Apply Combination
             </button>
           </div>
         </div>

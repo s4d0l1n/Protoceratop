@@ -87,7 +87,17 @@ export function G6Graph() {
       return
     }
 
-    // Check if mouse is over a node
+    // Check if mouse is over a meta-node first (they're larger)
+    for (const [metaNodeId, pos] of metaNodePositions.entries()) {
+      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
+      if (distance < 80) { // Larger hit radius for meta-nodes
+        setDraggedNodeId(metaNodeId)
+        setDragOffset({ x: x - pos.x, y: y - pos.y })
+        return
+      }
+    }
+
+    // Check if mouse is over a regular node
     for (const [nodeId, pos] of nodePositions.entries()) {
       const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
       if (distance < 60) { // Hit radius for card nodes
@@ -100,7 +110,7 @@ export function G6Graph() {
     // If not over a node, start panning
     setIsPanning(true)
     setPanStart({ x: e.clientX, y: e.clientY })
-  }, [nodePositions, panOffset, zoom])
+  }, [nodePositions, metaNodePositions, panOffset, zoom])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -120,31 +130,50 @@ export function G6Graph() {
       return
     }
 
-    // Handle node dragging
+    // Handle node/meta-node dragging
     if (draggedNodeId) {
       const x = (e.clientX - rect.left - panOffset.x) / zoom
       const y = (e.clientY - rect.top - panOffset.y) / zoom
 
-      // Update node position and trigger re-render
-      setNodePositions((prev) => {
-        const newPositions = new Map(prev)
-        const currentPos = newPositions.get(draggedNodeId)
-        if (currentPos) {
-          newPositions.set(draggedNodeId, {
-            ...currentPos,
-            x: x - dragOffset.x,
-            y: y - dragOffset.y,
-          })
-        }
-        return newPositions
-      })
+      // Check if dragging a meta-node
+      const isMetaNode = metaNodePositions.has(draggedNodeId)
+
+      if (isMetaNode) {
+        // Update meta-node position
+        setMetaNodePositions((prev) => {
+          const newPositions = new Map(prev)
+          const currentPos = newPositions.get(draggedNodeId)
+          if (currentPos) {
+            newPositions.set(draggedNodeId, {
+              ...currentPos,
+              x: x - dragOffset.x,
+              y: y - dragOffset.y,
+            })
+          }
+          return newPositions
+        })
+      } else {
+        // Update regular node position
+        setNodePositions((prev) => {
+          const newPositions = new Map(prev)
+          const currentPos = newPositions.get(draggedNodeId)
+          if (currentPos) {
+            newPositions.set(draggedNodeId, {
+              ...currentPos,
+              x: x - dragOffset.x,
+              y: y - dragOffset.y,
+            })
+          }
+          return newPositions
+        })
+      }
 
       // Request animation frame for smooth rendering during drag
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [draggedNodeId, dragOffset, isPanning, panStart, panOffset, zoom])
+  }, [draggedNodeId, dragOffset, isPanning, panStart, panOffset, zoom, metaNodePositions])
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     // Stop panning
