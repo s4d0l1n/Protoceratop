@@ -89,8 +89,31 @@ export function G6Graph() {
 
     // Check if mouse is over a meta-node first (they're larger)
     for (const [metaNodeId, pos] of metaNodePositions.entries()) {
-      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
-      if (distance < 80) { // Larger hit radius for meta-nodes
+      const metaNode = metaNodes.find((mn) => mn.id === metaNodeId)
+      if (!metaNode || !metaNode.collapsed) continue
+
+      // Calculate meta-node bounding box
+      const nodeCount = metaNode.childNodeIds.length
+      const cols = Math.min(4, Math.ceil(Math.sqrt(nodeCount)))
+      const rows = Math.ceil(nodeCount / cols)
+      const cardWidth = 120
+      const cardHeight = 60
+      const spacing = 15
+      const padding = 25
+      const headerHeight = 35
+      const containerWidth = Math.max(200, cols * (cardWidth + spacing) - spacing + padding * 2)
+      const containerHeight = rows * (cardHeight + spacing) - spacing + padding * 2 + headerHeight
+
+      const containerX = pos.x - containerWidth / 2
+      const containerY = pos.y - containerHeight / 2
+
+      // Check if mouse is within bounding box
+      if (
+        x >= containerX &&
+        x <= containerX + containerWidth &&
+        y >= containerY &&
+        y <= containerY + containerHeight
+      ) {
         setDraggedNodeId(metaNodeId)
         setDragOffset({ x: x - pos.x, y: y - pos.y })
         return
@@ -204,8 +227,31 @@ export function G6Graph() {
         // Check if click is on a meta-node first
         let isMetaNodeClick = false
         for (const [metaNodeId, metaPos] of metaNodePositions.entries()) {
-          const distance = Math.sqrt((x - metaPos.x) ** 2 + (y - metaPos.y) ** 2)
-          if (distance < 50) {
+          const metaNode = metaNodes.find((mn) => mn.id === metaNodeId)
+          if (!metaNode || !metaNode.collapsed) continue
+
+          // Calculate meta-node bounding box
+          const nodeCount = metaNode.childNodeIds.length
+          const cols = Math.min(4, Math.ceil(Math.sqrt(nodeCount)))
+          const rows = Math.ceil(nodeCount / cols)
+          const cardWidth = 120
+          const cardHeight = 60
+          const spacing = 15
+          const padding = 25
+          const headerHeight = 35
+          const containerWidth = Math.max(200, cols * (cardWidth + spacing) - spacing + padding * 2)
+          const containerHeight = rows * (cardHeight + spacing) - spacing + padding * 2 + headerHeight
+
+          const containerX = metaPos.x - containerWidth / 2
+          const containerY = metaPos.y - containerHeight / 2
+
+          // Check if click is within bounding box
+          if (
+            x >= containerX &&
+            x <= containerX + containerWidth &&
+            y >= containerY &&
+            y <= containerY + containerHeight
+          ) {
             // Select meta-node to show details of all contained nodes
             setSelectedMetaNodeId(metaNodeId)
             isMetaNodeClick = true
@@ -220,7 +266,7 @@ export function G6Graph() {
     }
 
     setDraggedNodeId(null)
-  }, [draggedNodeId, nodePositions, dragOffset, metaNodePositions, setSelectedNodeId, setSelectedMetaNodeId, isPanning, panOffset, zoom])
+  }, [draggedNodeId, nodePositions, dragOffset, metaNodePositions, metaNodes, setSelectedNodeId, setSelectedMetaNodeId, isPanning, panOffset, zoom])
 
   // Handle mouse wheel for zooming
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -563,7 +609,7 @@ export function G6Graph() {
         }
       })
 
-      // Draw meta-nodes (collapsed groups) - showing contained nodes
+      // Draw meta-nodes (collapsed groups) - showing contained nodes with full styling
       metaNodes.forEach((metaNode) => {
         if (!metaNode.collapsed) return // Only draw collapsed meta-nodes
 
@@ -573,108 +619,123 @@ export function G6Graph() {
         // Get contained nodes
         const containedNodes = nodes.filter((n) => metaNode.childNodeIds.includes(n.id))
 
-        // Calculate size based on number of contained nodes
+        // Calculate layout for contained nodes (grid layout)
         const nodeCount = containedNodes.length
-        const rows = Math.ceil(Math.sqrt(nodeCount))
-        const cols = Math.ceil(nodeCount / rows)
-        const miniNodeSize = 40
-        const spacing = 8
-        const padding = 20
-        const width = Math.max(150, cols * (miniNodeSize + spacing) + padding * 2)
-        const height = Math.max(120, rows * (miniNodeSize + spacing) + padding * 2 + 30) // Extra for header
+        const cols = Math.min(4, Math.ceil(Math.sqrt(nodeCount))) // Max 4 columns
+        const rows = Math.ceil(nodeCount / cols)
 
+        // Full-size node card dimensions
+        const cardWidth = 120
+        const cardHeight = 60
+        const spacing = 15
+        const padding = 25
+        const headerHeight = 35
+
+        const containerWidth = Math.max(200, cols * (cardWidth + spacing) - spacing + padding * 2)
+        const containerHeight = rows * (cardHeight + spacing) - spacing + padding * 2 + headerHeight
+
+        const containerX = pos.x - containerWidth / 2
+        const containerY = pos.y - containerHeight / 2
         const radius = 12
 
-        // Draw background with border
-        ctx.fillStyle = '#1e293b'
+        // Draw container background
+        ctx.fillStyle = '#0f172a'
         ctx.strokeStyle = '#3b82f6'
-        ctx.lineWidth = 3
-
-        // Rounded rectangle
-        const x = pos.x - width / 2
-        const y = pos.y - height / 2
+        ctx.lineWidth = 4
 
         ctx.beginPath()
-        ctx.moveTo(x + radius, y)
-        ctx.lineTo(x + width - radius, y)
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
-        ctx.lineTo(x + width, y + height - radius)
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
-        ctx.lineTo(x + radius, y + height)
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
-        ctx.lineTo(x, y + radius)
-        ctx.quadraticCurveTo(x, y, x + radius, y)
+        ctx.moveTo(containerX + radius, containerY)
+        ctx.lineTo(containerX + containerWidth - radius, containerY)
+        ctx.quadraticCurveTo(containerX + containerWidth, containerY, containerX + containerWidth, containerY + radius)
+        ctx.lineTo(containerX + containerWidth, containerY + containerHeight - radius)
+        ctx.quadraticCurveTo(containerX + containerWidth, containerY + containerHeight, containerX + containerWidth - radius, containerY + containerHeight)
+        ctx.lineTo(containerX + radius, containerY + containerHeight)
+        ctx.quadraticCurveTo(containerX, containerY + containerHeight, containerX, containerY + containerHeight - radius)
+        ctx.lineTo(containerX, containerY + radius)
+        ctx.quadraticCurveTo(containerX, containerY, containerX + radius, containerY)
         ctx.closePath()
         ctx.fill()
         ctx.stroke()
 
-        // Draw header with group label
+        // Draw header
         ctx.fillStyle = '#1e40af'
-        ctx.fillRect(x, y, width, 30)
+        ctx.fillRect(containerX + 4, containerY + 4, containerWidth - 8, headerHeight - 4)
 
         ctx.fillStyle = '#fff'
-        ctx.font = 'bold 12px sans-serif'
-        ctx.textAlign = 'center'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
-        ctx.fillText(`${metaNode.label} (${nodeCount})`, pos.x, y + 15)
+        ctx.fillText(metaNode.groupValue, containerX + padding, containerY + headerHeight / 2)
 
-        // Draw contained nodes as mini cards
-        const startX = x + padding
-        const startY = y + 30 + padding
+        ctx.font = '11px sans-serif'
+        ctx.fillStyle = '#93c5fd'
+        ctx.textAlign = 'right'
+        ctx.fillText(`${nodeCount} node${nodeCount !== 1 ? 's' : ''}`, containerX + containerWidth - padding, containerY + headerHeight / 2)
+
+        // Draw each contained node with full card styling
+        const startX = containerX + padding
+        const startY = containerY + headerHeight + padding
 
         containedNodes.forEach((node, idx) => {
           const row = Math.floor(idx / cols)
           const col = idx % cols
-          const nodeX = startX + col * (miniNodeSize + spacing)
-          const nodeY = startY + row * (miniNodeSize + spacing)
+          const nodeX = startX + col * (cardWidth + spacing) + cardWidth / 2
+          const nodeY = startY + row * (cardHeight + spacing) + cardHeight / 2
 
-          // Draw mini node card
-          ctx.fillStyle = node.isStub ? '#334155' : '#0f172a'
-          ctx.strokeStyle = node.isStub ? '#475569' : '#0891b2'
-          ctx.lineWidth = 1.5
+          // Get style rules and template for this node
+          const rules = getEnabledRules()
+          const ruleResult = evaluateNodeRules(node, rules)
+          const templateId = ruleResult.cardTemplateId || node.cardTemplateId
+          const cardTemplate = templateId ? getCardTemplateById(templateId) : undefined
 
-          const miniRadius = 4
+          // Draw node card (same as regular nodes but without selection highlight)
+          const x = nodeX - cardWidth / 2
+          const y = nodeY - cardHeight / 2
+          const cardRadius = 8
+
+          // Get template colors or defaults
+          const bgColor = cardTemplate?.backgroundColor || (node.isStub ? '#1e293b' : '#0f172a')
+          const borderColor = cardTemplate?.borderColor || (node.isStub ? '#475569' : '#0891b2')
+          const borderWidth = cardTemplate?.borderWidth || 2
+
+          ctx.fillStyle = bgColor
+          ctx.strokeStyle = borderColor
+          ctx.lineWidth = borderWidth
+
           ctx.beginPath()
-          ctx.moveTo(nodeX + miniRadius, nodeY)
-          ctx.lineTo(nodeX + miniNodeSize - miniRadius, nodeY)
-          ctx.quadraticCurveTo(nodeX + miniNodeSize, nodeY, nodeX + miniNodeSize, nodeY + miniRadius)
-          ctx.lineTo(nodeX + miniNodeSize, nodeY + miniNodeSize - miniRadius)
-          ctx.quadraticCurveTo(nodeX + miniNodeSize, nodeY + miniNodeSize, nodeX + miniNodeSize - miniRadius, nodeY + miniNodeSize)
-          ctx.lineTo(nodeX + miniRadius, nodeY + miniNodeSize)
-          ctx.quadraticCurveTo(nodeX, nodeY + miniNodeSize, nodeX, nodeY + miniNodeSize - miniRadius)
-          ctx.lineTo(nodeX, nodeY + miniRadius)
-          ctx.quadraticCurveTo(nodeX, nodeY, nodeX + miniRadius, nodeY)
+          ctx.moveTo(x + cardRadius, y)
+          ctx.lineTo(x + cardWidth - cardRadius, y)
+          ctx.quadraticCurveTo(x + cardWidth, y, x + cardWidth, y + cardRadius)
+          ctx.lineTo(x + cardWidth, y + cardHeight - cardRadius)
+          ctx.quadraticCurveTo(x + cardWidth, y + cardHeight, x + cardWidth - cardRadius, y + cardHeight)
+          ctx.lineTo(x + cardRadius, y + cardHeight)
+          ctx.quadraticCurveTo(x, y + cardHeight, x, y + cardHeight - cardRadius)
+          ctx.lineTo(x, y + cardRadius)
+          ctx.quadraticCurveTo(x, y, x + cardRadius, y)
           ctx.closePath()
           ctx.fill()
           ctx.stroke()
 
-          // Draw mini icon
-          const iconSize = 10
-          const iconX = nodeX + miniNodeSize / 2
-          const iconY = nodeY + 12
-          ctx.fillStyle = node.isStub ? '#64748b' : '#06b6d4'
-          ctx.beginPath()
-          ctx.arc(iconX, iconY, iconSize, 0, Math.PI * 2)
-          ctx.fill()
+          // Draw icon if template has one
+          if (cardTemplate?.icon) {
+            const iconSize = 16
+            const iconX = x + 10
+            const iconY = y + 10
 
+            ctx.font = `${iconSize}px sans-serif`
+            ctx.textAlign = 'left'
+            ctx.textBaseline = 'top'
+            ctx.fillText(cardTemplate.icon, iconX, iconY)
+          }
+
+          // Draw label
           ctx.fillStyle = '#fff'
-          ctx.font = 'bold 8px sans-serif'
+          ctx.font = 'bold 11px sans-serif'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          ctx.fillText(node.label.charAt(0).toUpperCase(), iconX, iconY)
-
-          // Draw mini label
-          ctx.fillStyle = '#e2e8f0'
-          ctx.font = '8px sans-serif'
-          const miniLabel = node.label.length > 6 ? node.label.substring(0, 6) + '.' : node.label
-          ctx.fillText(miniLabel, nodeX + miniNodeSize / 2, nodeY + miniNodeSize - 6)
+          const label = node.label.length > 14 ? node.label.substring(0, 14) + '...' : node.label
+          ctx.fillText(label, nodeX, y + cardHeight - 15)
         })
-
-        // Draw expand icon at bottom
-        ctx.fillStyle = '#64748b'
-        ctx.font = '9px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText('Click to expand', pos.x, y + height - 10)
       })
 
       // Draw nodes as cards (only visible nodes)
