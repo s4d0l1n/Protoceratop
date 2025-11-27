@@ -9,6 +9,7 @@ import {
   Settings,
   ArrowRightLeft,
   Layers2,
+  Type,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +58,13 @@ export function Sidebar({
       icon: <ArrowRightLeft className="w-5 h-5" />,
       label: 'Edge Templates',
       onClick: () => onPanelChange('edge-templates'),
+      disabled: !hasData,
+    },
+    {
+      id: 'font-templates',
+      icon: <Type className="w-5 h-5" />,
+      label: 'Font Templates',
+      onClick: () => onPanelChange('font-templates'),
       disabled: !hasData,
     },
     {

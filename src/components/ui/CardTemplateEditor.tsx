@@ -22,11 +22,73 @@ const NODE_SHAPES: NodeShape[] = [
   'hexagon',
 ]
 
-const EMOJI_PRESETS = [
-  '🔍', '🔐', '🔗', '💻', '📊', '🌐', '⚡', '🔥',
-  '📁', '📄', '👤', '🏢', '🗂️', '🎯', '⚠️', '✅',
-  '❌', '🚀', '🔧', '⚙️', '📡', '🖥️', '💾', '🗄️',
-]
+const EMOJI_CATEGORIES = {
+  'Tech & Work': [
+    '💻', '🖥️', '⌨️', '🖱️', '🖨️', '📱', '📞', '☎️', '📟', '📠',
+    '📡', '🔋', '🔌', '💾', '💿', '📀', '🗄️', '💽', '🔧', '🔨',
+    '⚙️', '🛠️', '⚡', '🔥', '💡', '🔦', '🕯️', '🔬', '🔭', '🛰️',
+  ],
+  'Data & Files': [
+    '📊', '📈', '📉', '📋', '📁', '📂', '🗂️', '📄', '📃', '📑',
+    '📇', '🗃️', '📰', '🗞️', '📓', '📔', '📒', '📕', '📗', '📘',
+    '📙', '📚', '📖', '🔖', '🗒️', '📝', '✏️', '✒️', '🖊️', '🖋️',
+  ],
+  'Security & Lock': [
+    '🔐', '🔒', '🔓', '🔑', '🗝️', '🔏', '🛡️', '⚔️', '🔪', '💣',
+    '🧨', '🔫', '🚨', '🚦', '🚥', '⚠️', '☢️', '☣️', '🔰', '🆘',
+  ],
+  'Communication': [
+    '📧', '📨', '📩', '📤', '📥', '📦', '📫', '📪', '📬', '📭',
+    '📮', '🗳️', '💬', '💭', '🗨️', '🗯️', '💌', '🎙️', '📢', '📣',
+    '📻', '📺', '📹', '📷', '📸', '🔊', '🔉', '🔈', '🔇', '🔔',
+  ],
+  'People & Teams': [
+    '👤', '👥', '👨', '👩', '👦', '👧', '🧑', '👶', '👨‍💼', '👩‍💼',
+    '👨‍💻', '👩‍💻', '👨‍🔧', '👩‍🔧', '👨‍🔬', '👩‍🔬', '👨‍🎓', '👩‍🎓', '👨‍🏫', '👩‍🏫',
+    '🙋', '🙋‍♂️', '🙋‍♀️', '🤷', '🤷‍♂️', '🤷‍♀️', '🤦', '🤦‍♂️', '🤦‍♀️', '👮',
+  ],
+  'Business': [
+    '🏢', '🏦', '🏪', '🏬', '🏭', '🏗️', '🏛️', '💼', '💰', '💵',
+    '💴', '💶', '💷', '💸', '💳', '💹', '📊', '📈', '📉', '💱',
+    '🏧', '🏪', '🏫', '🏤', '🏥', '🏦', '🏨', '🏩', '🏪', '🏫',
+  ],
+  'Symbols & Status': [
+    '✅', '✔️', '☑️', '✖️', '❌', '❎', '➕', '➖', '➗', '✳️',
+    '✴️', '❇️', '‼️', '⁉️', '❓', '❔', '❕', '❗', '🔴', '🟠',
+    '🟡', '🟢', '🔵', '🟣', '🟤', '⚫', '⚪', '🟥', '🟧', '🟨',
+    '🟩', '🟦', '🟪', '🟫', '⬛', '⬜', '🔶', '🔷', '🔸', '🔹',
+  ],
+  'Direction & Flow': [
+    '⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↖️', '↕️', '↔️',
+    '↩️', '↪️', '⤴️', '⤵️', '🔃', '🔄', '🔙', '🔚', '🔛', '🔜',
+    '🔝', '🔀', '🔁', '🔂', '▶️', '⏩', '⏭️', '⏯️', '◀️', '⏪',
+  ],
+  'Targets & Goals': [
+    '🎯', '🎪', '🎨', '🎬', '🎭', '🎮', '🎰', '🎲', '🎳', '🎴',
+    '🏆', '🏅', '🥇', '🥈', '🥉', '⭐', '🌟', '✨', '💫', '🔆',
+    '🎖️', '🏵️', '🎗️', '🎀', '👑', '💍', '💎', '🔱', '⚜️', '🔯',
+  ],
+  'Network & Links': [
+    '🔗', '⛓️', '🌐', '🌍', '🌎', '🌏', '🗺️', '🧭', '📍', '📌',
+    '🔍', '🔎', '🔬', '🔭', '📡', '🛰️', '🌐', '💻', '🖥️', '📱',
+    '⚓', '🎣', '🪝', '🧲', '🧿', '🪬', '🔮', '🪄', '🎱', '💠',
+  ],
+  'Time & Speed': [
+    '⏰', '⏱️', '⏲️', '⏳', '⌛', '⌚', '🕐', '🕑', '🕒', '🕓',
+    '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛', '🚀', '✈️',
+    '🛸', '🚁', '🛩️', '⏩', '⏪', '⏫', '⏬', '▶️', '◀️', '⏸️',
+  ],
+  'Nature & Science': [
+    '🌱', '🌿', '🍀', '🍁', '🍂', '🍃', '🌾', '🌲', '🌳', '🌴',
+    '🌵', '🌷', '🌸', '🌹', '🌺', '🌻', '🌼', '🌽', '🍄', '🌰',
+    '⚗️', '🧪', '🧫', '🧬', '🔬', '🔭', '📡', '🛰️', '🌡️', '🧲',
+  ],
+  'Weather & Energy': [
+    '☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌧️', '⛈️', '🌩️', '🌨️',
+    '❄️', '☃️', '⛄', '🌬️', '💨', '🌪️', '🌫️', '🌊', '💧', '💦',
+    '⚡', '🔥', '💥', '💫', '⭐', '🌟', '✨', '🔆', '☄️', '🌠',
+  ],
+}
 
 /**
  * Card template editor component
@@ -52,9 +114,13 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
   const [borderColor, setBorderColor] = useState(template?.borderColor || '#06b6d4')
   const [borderWidth, setBorderWidth] = useState(template?.borderWidth || 2)
   const [shape, setShape] = useState<NodeShape>(template?.shape || 'rect')
+  const [transparentShape, setTransparentShape] = useState(template?.transparentShape || false)
   const [icon, setIcon] = useState(template?.icon || '📊')
   const [iconColor, setIconColor] = useState(template?.iconColor || '#06b6d4')
+  const [showIcon, setShowIcon] = useState(template?.showIcon !== false)
+  const [iconSize, setIconSize] = useState(template?.iconSize || 1)
   const [size, setSize] = useState(template?.size || 1)
+  const [autoFit, setAutoFit] = useState(template?.autoFit || false)
   const [attributeDisplays, setAttributeDisplays] = useState<AttributeDisplay[]>(
     template?.attributeDisplays || [
       {
@@ -66,11 +132,34 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
     ]
   )
 
+  // Effects state
+  const [shadowEnabled, setShadowEnabled] = useState(template?.effects?.shadow?.enabled || false)
+  const [shadowColor, setShadowColor] = useState(template?.effects?.shadow?.color || '#000000')
+  const [shadowBlur, setShadowBlur] = useState(template?.effects?.shadow?.blur || 10)
+  const [shadowOffsetX, setShadowOffsetX] = useState(template?.effects?.shadow?.offsetX || 2)
+  const [shadowOffsetY, setShadowOffsetY] = useState(template?.effects?.shadow?.offsetY || 2)
+
+  const [glowEnabled, setGlowEnabled] = useState(template?.effects?.glow?.enabled || false)
+  const [glowColor, setGlowColor] = useState(template?.effects?.glow?.color || '#06b6d4')
+  const [glowBlur, setGlowBlur] = useState(template?.effects?.glow?.blur || 15)
+  const [glowIntensity, setGlowIntensity] = useState(template?.effects?.glow?.intensity || 1)
+
+  const [pulseEnabled, setPulseEnabled] = useState(template?.effects?.pulse?.enabled || false)
+  const [pulseSpeed, setPulseSpeed] = useState(template?.effects?.pulse?.speed || 1)
+
+  const [rgbCycleEnabled, setRgbCycleEnabled] = useState(template?.effects?.rgbCycle?.enabled || false)
+  const [rgbCycleSpeed, setRgbCycleSpeed] = useState(template?.effects?.rgbCycle?.speed || 1)
+  const [rgbCycleTarget, setRgbCycleTarget] = useState<'border' | 'glow' | 'both'>(template?.effects?.rgbCycle?.target || 'border')
+
   // Icon picker state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>(Object.keys(EMOJI_CATEGORIES)[0])
 
   // Track which attributes have expanded styling options
   const [expandedAttributes, setExpandedAttributes] = useState<Set<number>>(new Set())
+
+  // Track which effect sections are expanded
+  const [expandedEffects, setExpandedEffects] = useState<Set<string>>(new Set())
 
   const toggleAttributeExpanded = (index: number) => {
     const newExpanded = new Set(expandedAttributes)
@@ -95,12 +184,40 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
       borderColor,
       borderWidth,
       shape,
+      transparentShape,
       icon,
       iconColor,
+      showIcon,
+      iconSize,
       size,
+      autoFit,
       attributeDisplays,
       isDefault: template?.isDefault || false,
       createdAt: template?.createdAt || Date.now(),
+      effects: {
+        shadow: shadowEnabled ? {
+          enabled: true,
+          color: shadowColor,
+          blur: shadowBlur,
+          offsetX: shadowOffsetX,
+          offsetY: shadowOffsetY,
+        } : undefined,
+        glow: glowEnabled ? {
+          enabled: true,
+          color: glowColor,
+          blur: glowBlur,
+          intensity: glowIntensity,
+        } : undefined,
+        pulse: pulseEnabled ? {
+          enabled: true,
+          speed: pulseSpeed,
+        } : undefined,
+        rgbCycle: rgbCycleEnabled ? {
+          enabled: true,
+          speed: rgbCycleSpeed,
+          target: rgbCycleTarget,
+        } : undefined,
+      },
     }
 
     onSave(newTemplate)
@@ -287,6 +404,19 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
               </div>
             </div>
 
+            {/* Auto-fit checkbox */}
+            <div className="mt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoFit}
+                  onChange={(e) => setAutoFit(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-sm text-slate-300">Auto-fit size to content (prevents label overflow)</span>
+              </label>
+            </div>
+
             {/* Shape Selector */}
             <div className="mt-4">
               <label className="block text-sm font-medium text-slate-300 mb-2">Shape</label>
@@ -305,6 +435,19 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Transparent Shape checkbox */}
+            <div className="mt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={transparentShape}
+                  onChange={(e) => setTransparentShape(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-sm text-slate-300">Transparent shape (only show icon/image)</span>
+              </label>
             </div>
           </section>
 
@@ -337,9 +480,27 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
 
               {/* Emoji Picker */}
               {showEmojiPicker && (
-                <div className="p-3 bg-dark border border-dark rounded">
-                  <div className="grid grid-cols-8 gap-2">
-                    {EMOJI_PRESETS.map((emoji) => (
+                <div className="p-3 bg-dark border border-dark rounded space-y-3 max-h-96 overflow-y-auto">
+                  {/* Category tabs */}
+                  <div className="flex flex-wrap gap-2 pb-2 border-b border-dark">
+                    {Object.keys(EMOJI_CATEGORIES).map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => setSelectedCategory(category)}
+                        className={`px-3 py-1 rounded text-xs transition-colors ${
+                          selectedCategory === category
+                            ? 'bg-cyber-500 text-white'
+                            : 'bg-dark-secondary text-slate-400 hover:bg-dark-tertiary hover:text-slate-200'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Emoji grid */}
+                  <div className="grid grid-cols-10 gap-1">
+                    {EMOJI_CATEGORIES[selectedCategory as keyof typeof EMOJI_CATEGORIES].map((emoji) => (
                       <button
                         key={emoji}
                         onClick={() => {
@@ -347,6 +508,7 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
                           setShowEmojiPicker(false)
                         }}
                         className="text-2xl p-2 hover:bg-dark-secondary rounded transition-colors"
+                        title={emoji}
                       >
                         {emoji}
                       </button>
@@ -375,6 +537,296 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
                   />
                 </div>
               </div>
+
+              {/* Show Icon Toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showIcon"
+                  checked={showIcon}
+                  onChange={(e) => setShowIcon(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                />
+                <label htmlFor="showIcon" className="text-sm text-slate-300 cursor-pointer">
+                  Show Icon
+                </label>
+              </div>
+
+              {/* Icon Size */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Icon Size: {iconSize.toFixed(1)}x
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="3"
+                  step="0.1"
+                  value={iconSize}
+                  onChange={(e) => setIconSize(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Visual Effects */}
+          <section>
+            <h3 className="text-lg font-semibold text-slate-100 mb-3">Visual Effects</h3>
+            <div className="space-y-4">
+
+              {/* Shadow Effect */}
+              <div className="p-3 bg-dark border border-dark rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="shadowEnabled"
+                      checked={shadowEnabled}
+                      onChange={(e) => setShadowEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <label htmlFor="shadowEnabled" className="text-sm font-medium text-slate-300 cursor-pointer">
+                      Drop Shadow
+                    </label>
+                  </div>
+                  {shadowEnabled && (
+                    <button
+                      onClick={() => {
+                        const newExpanded = new Set(expandedEffects)
+                        if (newExpanded.has('shadow')) {
+                          newExpanded.delete('shadow')
+                        } else {
+                          newExpanded.add('shadow')
+                        }
+                        setExpandedEffects(newExpanded)
+                      }}
+                      className="text-slate-400 hover:text-slate-200"
+                    >
+                      {expandedEffects.has('shadow') ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {shadowEnabled && expandedEffects.has('shadow') && (
+                  <div className="mt-3 space-y-2 pl-6">
+                    <div className="flex gap-2 items-center">
+                      <label className="text-xs text-slate-400 w-20">Color:</label>
+                      <input
+                        type="color"
+                        value={shadowColor}
+                        onChange={(e) => setShadowColor(e.target.value)}
+                        className="w-10 h-8 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={shadowColor}
+                        onChange={(e) => setShadowColor(e.target.value)}
+                        className="flex-1 px-2 py-1 bg-dark-secondary border border-dark rounded text-xs text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400">Blur: {shadowBlur}px</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="30"
+                        value={shadowBlur}
+                        onChange={(e) => setShadowBlur(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400">Offset X: {shadowOffsetX}px</label>
+                      <input
+                        type="range"
+                        min="-20"
+                        max="20"
+                        value={shadowOffsetX}
+                        onChange={(e) => setShadowOffsetX(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400">Offset Y: {shadowOffsetY}px</label>
+                      <input
+                        type="range"
+                        min="-20"
+                        max="20"
+                        value={shadowOffsetY}
+                        onChange={(e) => setShadowOffsetY(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Glow Effect */}
+              <div className="p-3 bg-dark border border-dark rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="glowEnabled"
+                      checked={glowEnabled}
+                      onChange={(e) => setGlowEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <label htmlFor="glowEnabled" className="text-sm font-medium text-slate-300 cursor-pointer">
+                      Glow
+                    </label>
+                  </div>
+                  {glowEnabled && (
+                    <button
+                      onClick={() => {
+                        const newExpanded = new Set(expandedEffects)
+                        if (newExpanded.has('glow')) {
+                          newExpanded.delete('glow')
+                        } else {
+                          newExpanded.add('glow')
+                        }
+                        setExpandedEffects(newExpanded)
+                      }}
+                      className="text-slate-400 hover:text-slate-200"
+                    >
+                      {expandedEffects.has('glow') ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {glowEnabled && expandedEffects.has('glow') && (
+                  <div className="mt-3 space-y-2 pl-6">
+                    <div className="flex gap-2 items-center">
+                      <label className="text-xs text-slate-400 w-20">Color:</label>
+                      <input
+                        type="color"
+                        value={glowColor}
+                        onChange={(e) => setGlowColor(e.target.value)}
+                        className="w-10 h-8 rounded cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={glowColor}
+                        onChange={(e) => setGlowColor(e.target.value)}
+                        className="flex-1 px-2 py-1 bg-dark-secondary border border-dark rounded text-xs text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400">Blur: {glowBlur}px</label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="40"
+                        value={glowBlur}
+                        onChange={(e) => setGlowBlur(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400">Intensity: {glowIntensity.toFixed(1)}x</label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.1"
+                        value={glowIntensity}
+                        onChange={(e) => setGlowIntensity(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Pulse Animation */}
+              <div className="p-3 bg-dark border border-dark rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="pulseEnabled"
+                      checked={pulseEnabled}
+                      onChange={(e) => setPulseEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <label htmlFor="pulseEnabled" className="text-sm font-medium text-slate-300 cursor-pointer">
+                      Pulse Animation
+                    </label>
+                  </div>
+                </div>
+
+                {pulseEnabled && (
+                  <div className="mt-2 pl-6">
+                    <label className="text-xs text-slate-400">Speed: {pulseSpeed.toFixed(3)}x</label>
+                    <input
+                      type="range"
+                      min="0.01"
+                      max="2"
+                      step="0.01"
+                      value={pulseSpeed}
+                      onChange={(e) => setPulseSpeed(Number(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* RGB Color Cycle */}
+              <div className="p-3 bg-dark border border-dark rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="rgbCycleEnabled"
+                      checked={rgbCycleEnabled}
+                      onChange={(e) => setRgbCycleEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <label htmlFor="rgbCycleEnabled" className="text-sm font-medium text-slate-300 cursor-pointer">
+                      RGB Color Cycle
+                    </label>
+                  </div>
+                </div>
+
+                {rgbCycleEnabled && (
+                  <div className="mt-2 space-y-2 pl-6">
+                    <div>
+                      <label className="text-xs text-slate-400">Speed: {rgbCycleSpeed.toFixed(3)}x</label>
+                      <input
+                        type="range"
+                        min="0.01"
+                        max="2"
+                        step="0.01"
+                        value={rgbCycleSpeed}
+                        onChange={(e) => setRgbCycleSpeed(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 block mb-1">Target:</label>
+                      <select
+                        value={rgbCycleTarget}
+                        onChange={(e) => setRgbCycleTarget(e.target.value as 'border' | 'glow' | 'both')}
+                        className="w-full px-2 py-1 bg-dark-secondary border border-dark rounded text-xs text-slate-100"
+                      >
+                        <option value="border">Border</option>
+                        <option value="glow">Glow</option>
+                        <option value="both">Both</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
           </section>
 

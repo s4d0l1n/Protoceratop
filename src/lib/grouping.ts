@@ -1,4 +1,4 @@
-import type { GraphNode, MetaNode, GroupingConfig, CombinationLayer } from '@/types'
+import type { GraphNode, MetaNode, GroupingConfig, CombinationLayer, GraphEdge } from '@/types'
 
 /**
  * Grouping utility functions
@@ -40,24 +40,44 @@ function generateSingleLayerMetaNodes(
   autoCollapse: boolean,
   layer: number
 ): MetaNode[] {
-  // Group nodes by attribute value
+  // First pass: identify which nodes belong to multiple groups (conflicts)
+  const nodeGroupCounts = new Map<string, number>()
+
+  nodes.forEach((node) => {
+    const attrValue = node.attributes[groupByAttr]
+    let groupCount = 0
+
+    if (Array.isArray(attrValue)) {
+      // Count non-empty values in array
+      groupCount = attrValue.filter((val) => val && val !== '').length
+    } else if (attrValue !== undefined && attrValue !== '') {
+      groupCount = 1
+    }
+
+    nodeGroupCounts.set(node.id, groupCount)
+  })
+
+  // Second pass: group nodes by attribute value, excluding multi-group nodes
   const groups = new Map<string, GraphNode[]>()
 
   nodes.forEach((node) => {
     const attrValue = node.attributes[groupByAttr]
 
-    // Handle multi-value attributes (arrays)
+    // Skip nodes that would belong to multiple groups
+    if ((nodeGroupCounts.get(node.id) || 0) > 1) {
+      return
+    }
+
+    // Handle single-value attributes (including single-element arrays)
     if (Array.isArray(attrValue)) {
-      attrValue.forEach((val) => {
-        // Skip empty values
-        if (val && val !== '') {
-          const key = val
-          if (!groups.has(key)) {
-            groups.set(key, [])
-          }
-          groups.get(key)!.push(node)
+      const validValues = attrValue.filter((val) => val && val !== '')
+      if (validValues.length === 1) {
+        const key = validValues[0]
+        if (!groups.has(key)) {
+          groups.set(key, [])
         }
-      })
+        groups.get(key)!.push(node)
+      }
     } else if (attrValue !== undefined && attrValue !== '') {
       const key = attrValue
       if (!groups.has(key)) {
@@ -252,4 +272,86 @@ export function calculateMetaNodePosition(
     x: sumX / childPositions.length,
     y: sumY / childPositions.length,
   }
+}
+
+/**
+ * Find which meta-node (if any) contains a given node
+ * Returns the collapsed meta-node containing this node, or undefined
+ */
+export function findContainingCollapsedMetaNode(
+  nodeId: string,
+  metaNodes: MetaNode[]
+): MetaNode | undefined {
+  return metaNodes.find((mn) => mn.collapsed && mn.childNodeIds.includes(nodeId))
+}
+
+/**
+ * Transform edges to account for collapsed meta-nodes
+ * Returns a list of transformed edges with their rendering positions
+ */
+export interface TransformedEdge {
+  /** Original edge source */
+  originalSource: string
+  /** Original edge target */
+  originalTarget: string
+  /** Actual source for rendering (could be meta-node ID) */
+  renderSource: string
+  /** Actual target for rendering (could be meta-node ID) */
+  renderTarget: string
+  /** Whether this edge should be rendered */
+  shouldRender: boolean
+  /** Whether source is a meta-node */
+  sourceIsMetaNode: boolean
+  /** Whether target is a meta-node */
+  targetIsMetaNode: boolean
+  /** Original edge data */
+  edge: GraphEdge
+}
+
+/**
+ * Transform all edges to account for collapsed meta-nodes
+ * This function determines which edges should be rendered and where
+ */
+export function transformEdgesForGrouping(
+  edges: GraphEdge[],
+  metaNodes: MetaNode[]
+): TransformedEdge[] {
+  const transformedEdges: TransformedEdge[] = []
+
+  // Create a map to deduplicate edges between same source/target
+  const edgeMap = new Map<string, TransformedEdge>()
+
+  edges.forEach((edge) => {
+    // Find if source/target are in collapsed meta-nodes
+    const sourceMetaNode = findContainingCollapsedMetaNode(edge.source, metaNodes)
+    const targetMetaNode = findContainingCollapsedMetaNode(edge.target, metaNodes)
+
+    // Determine render source and target
+    const renderSource = sourceMetaNode ? sourceMetaNode.id : edge.source
+    const renderTarget = targetMetaNode ? targetMetaNode.id : edge.target
+
+    // Skip if both endpoints are in the same collapsed meta-node (internal edge)
+    if (renderSource === renderTarget) {
+      return
+    }
+
+    // Create edge key for deduplication
+    const edgeKey = `${renderSource}->${renderTarget}`
+
+    // Only keep first edge for each unique source->target pair
+    if (!edgeMap.has(edgeKey)) {
+      edgeMap.set(edgeKey, {
+        originalSource: edge.source,
+        originalTarget: edge.target,
+        renderSource,
+        renderTarget,
+        shouldRender: true,
+        sourceIsMetaNode: !!sourceMetaNode,
+        targetIsMetaNode: !!targetMetaNode,
+        edge,
+      })
+    }
+  })
+
+  return Array.from(edgeMap.values())
 }

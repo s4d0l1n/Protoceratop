@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import type { EdgeTemplate } from '@/types'
+import type { EdgeTemplate, EdgeLineType, ArrowPosition } from '@/types'
 
 interface EdgeTemplateEditorProps {
   /** Template being edited (null for new) */
@@ -12,12 +12,14 @@ interface EdgeTemplateEditorProps {
 }
 
 const LINE_STYLES: Array<'solid' | 'dashed' | 'dotted'> = ['solid', 'dashed', 'dotted']
+const LINE_TYPES: EdgeLineType[] = ['straight', 'curved', 'orthogonal']
 const ARROW_TYPES: Array<'default' | 'triangle' | 'circle' | 'none'> = [
   'default',
   'triangle',
   'circle',
   'none',
 ]
+const ARROW_POSITIONS: ArrowPosition[] = ['none', 'end', 'start', 'both']
 
 const COLOR_PRESETS = [
   '#475569', // slate-600
@@ -47,8 +49,14 @@ export function EdgeTemplateEditor({ template, onClose, onSave }: EdgeTemplateEd
   const [style, setStyle] = useState<'solid' | 'dashed' | 'dotted'>(
     template?.style || 'solid'
   )
+  const [lineType, setLineType] = useState<EdgeLineType>(
+    template?.lineType || 'straight'
+  )
   const [arrowType, setArrowType] = useState<'default' | 'triangle' | 'circle' | 'none'>(
     template?.arrowType || 'default'
+  )
+  const [arrowPosition, setArrowPosition] = useState<ArrowPosition>(
+    template?.arrowPosition || 'end'
   )
   const [label, setLabel] = useState(template?.label || '')
   const [opacity, setOpacity] = useState(template?.opacity ?? 1)
@@ -65,7 +73,9 @@ export function EdgeTemplateEditor({ template, onClose, onSave }: EdgeTemplateEd
       color,
       width,
       style,
+      lineType,
       arrowType,
+      arrowPosition,
       label: label.trim(),
       opacity,
       isDefault: template?.isDefault || false,
@@ -202,6 +212,28 @@ export function EdgeTemplateEditor({ template, onClose, onSave }: EdgeTemplateEd
               </div>
             </div>
 
+            {/* Line Type */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Line Type
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {LINE_TYPES.map((typeOption) => (
+                  <button
+                    key={typeOption}
+                    onClick={() => setLineType(typeOption)}
+                    className={`px-4 py-2 rounded-lg border-2 transition-all capitalize ${
+                      lineType === typeOption
+                        ? 'border-cyber-500 bg-cyber-500/10 text-cyber-400'
+                        : 'border-dark-tertiary bg-dark text-slate-400 hover:border-slate-500'
+                    }`}
+                  >
+                    {typeOption}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Arrow Type */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -219,6 +251,28 @@ export function EdgeTemplateEditor({ template, onClose, onSave }: EdgeTemplateEd
                     }`}
                   >
                     {arrowOption}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Arrow Position */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Arrow Position
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {ARROW_POSITIONS.map((posOption) => (
+                  <button
+                    key={posOption}
+                    onClick={() => setArrowPosition(posOption)}
+                    className={`px-4 py-2 rounded-lg border-2 transition-all capitalize ${
+                      arrowPosition === posOption
+                        ? 'border-cyber-500 bg-cyber-500/10 text-cyber-400'
+                        : 'border-dark-tertiary bg-dark text-slate-400 hover:border-slate-500'
+                    }`}
+                  >
+                    {posOption}
                   </button>
                 ))}
               </div>

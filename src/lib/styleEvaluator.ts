@@ -92,10 +92,12 @@ export function evaluateNodeRules(
   rules: StyleRule[]
 ): {
   cardTemplateId?: string
+  fontTemplateId?: string
   additionalTags: string[]
 } {
   const result: {
     cardTemplateId?: string
+    fontTemplateId?: string
     additionalTags: string[]
   } = {
     additionalTags: [],
@@ -115,6 +117,11 @@ export function evaluateNodeRules(
         // First matching template wins
         if (!result.cardTemplateId) {
           result.cardTemplateId = rule.actionParams.templateId
+        }
+      } else if (rule.action === 'apply_font_template' && rule.actionParams.templateId) {
+        // First matching font template wins
+        if (!result.fontTemplateId) {
+          result.fontTemplateId = rule.actionParams.templateId
         }
       } else if (rule.action === 'add_tag' && rule.actionParams.tagName) {
         result.additionalTags.push(rule.actionParams.tagName)

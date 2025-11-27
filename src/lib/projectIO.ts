@@ -67,6 +67,7 @@ export function createProjectSnapshot(stores: {
   edges: ProjectState['edges']
   cardTemplates: ProjectState['cardTemplates']
   edgeTemplates: ProjectState['edgeTemplates']
+  fontTemplates: ProjectState['fontTemplates']
   styleRules: ProjectState['styleRules']
   layoutConfig: ProjectState['layoutConfig']
 }): ProjectState {
@@ -81,6 +82,7 @@ export function createProjectSnapshot(stores: {
     edges: stores.edges,
     cardTemplates: stores.cardTemplates,
     edgeTemplates: stores.edgeTemplates,
+    fontTemplates: stores.fontTemplates,
     styleRules: stores.styleRules,
     layoutConfig: stores.layoutConfig,
   }

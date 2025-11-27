@@ -1,17 +1,19 @@
 import { create } from 'zustand'
-import type { CardTemplate, EdgeTemplate } from '@/types'
+import type { CardTemplate, EdgeTemplate, FontTemplate } from '@/types'
 
 /**
  * Template management store
- * Handles card templates and edge templates
+ * Handles card templates, edge templates, and font templates
  */
 
 interface TemplateState {
   // Templates
   cardTemplates: CardTemplate[]
   edgeTemplates: EdgeTemplate[]
+  fontTemplates: FontTemplate[]
   defaultCardTemplateId: string | null
   defaultEdgeTemplateId: string | null
+  defaultFontTemplateId: string | null
 
   // Card template actions
   addCardTemplate: (template: CardTemplate) => void
@@ -29,6 +31,14 @@ interface TemplateState {
   getEdgeTemplateById: (templateId: string) => EdgeTemplate | undefined
   getDefaultEdgeTemplate: () => EdgeTemplate | undefined
 
+  // Font template actions
+  addFontTemplate: (template: FontTemplate) => void
+  updateFontTemplate: (templateId: string, updates: Partial<FontTemplate>) => void
+  removeFontTemplate: (templateId: string) => void
+  setDefaultFontTemplate: (templateId: string) => void
+  getFontTemplateById: (templateId: string) => FontTemplate | undefined
+  getDefaultFontTemplate: () => FontTemplate | undefined
+
   // General actions
   clearAllTemplates: () => void
 }
@@ -37,8 +47,10 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
   // Initial state
   cardTemplates: [],
   edgeTemplates: [],
+  fontTemplates: [],
   defaultCardTemplateId: null,
   defaultEdgeTemplateId: null,
+  defaultFontTemplateId: null,
 
   // Card template actions
   addCardTemplate: (template) =>
@@ -124,12 +136,56 @@ export const useTemplateStore = create<TemplateState>((set, get) => ({
     return state.edgeTemplates.find((t) => t.isDefault)
   },
 
+  // Font template actions
+  addFontTemplate: (template) =>
+    set((state) => ({
+      fontTemplates: [...state.fontTemplates, template],
+    })),
+
+  updateFontTemplate: (templateId, updates) =>
+    set((state) => ({
+      fontTemplates: state.fontTemplates.map((t) =>
+        t.id === templateId ? { ...t, ...updates } : t
+      ),
+    })),
+
+  removeFontTemplate: (templateId) =>
+    set((state) => ({
+      fontTemplates: state.fontTemplates.filter((t) => t.id !== templateId),
+      defaultFontTemplateId:
+        state.defaultFontTemplateId === templateId
+          ? null
+          : state.defaultFontTemplateId,
+    })),
+
+  setDefaultFontTemplate: (templateId) =>
+    set((state) => ({
+      defaultFontTemplateId: templateId,
+      fontTemplates: state.fontTemplates.map((t) => ({
+        ...t,
+        isDefault: t.id === templateId,
+      })),
+    })),
+
+  getFontTemplateById: (templateId) =>
+    get().fontTemplates.find((t) => t.id === templateId),
+
+  getDefaultFontTemplate: () => {
+    const state = get()
+    if (state.defaultFontTemplateId) {
+      return state.fontTemplates.find((t) => t.id === state.defaultFontTemplateId)
+    }
+    return state.fontTemplates.find((t) => t.isDefault)
+  },
+
   // General actions
   clearAllTemplates: () =>
     set({
       cardTemplates: [],
       edgeTemplates: [],
+      fontTemplates: [],
       defaultCardTemplateId: null,
       defaultEdgeTemplateId: null,
+      defaultFontTemplateId: null,
     }),
 }))

@@ -7,6 +7,7 @@ import { ColumnMapper } from '@/components/ui/ColumnMapper'
 import { NodeDetailPanel } from '@/components/ui/NodeDetailPanel'
 import { CardTemplatePanel } from '@/components/ui/CardTemplatePanel'
 import { EdgeTemplatePanel } from '@/components/ui/EdgeTemplatePanel'
+import { FontTemplatePanel } from '@/components/ui/FontTemplatePanel'
 import { SearchFilterPanel } from '@/components/ui/SearchFilterPanel'
 import { RulesPanel } from '@/components/ui/RulesPanel'
 import { LayoutPanel } from '@/components/ui/LayoutPanel'
@@ -158,14 +159,17 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Node Detail Panel (right sidebar) */}
+        <NodeDetailPanel />
       </main>
 
       {/* Panels */}
       <UploadPanel />
       <ColumnMapper />
-      <NodeDetailPanel />
       <CardTemplatePanel />
       <EdgeTemplatePanel />
+      <FontTemplatePanel />
       <SearchFilterPanel />
       <RulesPanel />
       <LayoutPanel />

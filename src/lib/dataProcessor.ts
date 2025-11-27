@@ -63,6 +63,9 @@ export function processCSVFile(file: CSVFile): {
 
     // Process attribute mappings
     for (const mapping of file.mapping) {
+      // Skip ignored columns entirely
+      if (mapping.role === 'ignore') continue
+
       if (mapping.role === 'attribute' && mapping.attributeName) {
         const value = row[mapping.columnName]
         if (value !== undefined && value !== null && value !== '') {
@@ -110,6 +113,9 @@ export function processCSVFile(file: CSVFile): {
     const sourceNodeId = nodeIds[0]
 
     for (const mapping of file.mapping) {
+      // Skip ignored columns - they should not create links or stub nodes
+      if (mapping.role === 'ignore') continue
+
       if (mapping.role === 'link_to' && mapping.linkTargetAttribute) {
         const value = row[mapping.columnName]
         if (!value) continue

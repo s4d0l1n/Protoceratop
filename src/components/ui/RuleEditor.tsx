@@ -17,7 +17,7 @@ interface RuleEditorProps {
  */
 export function RuleEditor({ rule, onClose, onSave }: RuleEditorProps) {
   const { nodes } = useGraphStore()
-  const { cardTemplates, edgeTemplates } = useTemplateStore()
+  const { cardTemplates, edgeTemplates, fontTemplates } = useTemplateStore()
 
   const operators = getConditionOperators()
 
@@ -63,7 +63,7 @@ export function RuleEditor({ rule, onClose, onSave }: RuleEditorProps) {
     }
 
     // Validate action params
-    if (action === 'apply_card_template' || action === 'apply_edge_template') {
+    if (action === 'apply_card_template' || action === 'apply_edge_template' || action === 'apply_font_template') {
       if (!templateId) {
         return
       }
@@ -86,7 +86,7 @@ export function RuleEditor({ rule, onClose, onSave }: RuleEditorProps) {
       },
       action,
       actionParams: {
-        templateId: action === 'apply_card_template' || action === 'apply_edge_template' ? templateId : undefined,
+        templateId: action === 'apply_card_template' || action === 'apply_edge_template' || action === 'apply_font_template' ? templateId : undefined,
         tagName: action === 'add_tag' ? tagName.trim() : undefined,
       },
       createdAt: rule?.createdAt || Date.now(),
@@ -251,6 +251,7 @@ export function RuleEditor({ rule, onClose, onSave }: RuleEditorProps) {
                   {target === 'nodes' && (
                     <>
                       <option value="apply_card_template">Apply Card Template</option>
+                      <option value="apply_font_template">Apply Font Template</option>
                       <option value="add_tag">Add Tag</option>
                     </>
                   )}
@@ -260,7 +261,7 @@ export function RuleEditor({ rule, onClose, onSave }: RuleEditorProps) {
                 </select>
               </div>
 
-              {(action === 'apply_card_template' || action === 'apply_edge_template') && (
+              {(action === 'apply_card_template' || action === 'apply_edge_template' || action === 'apply_font_template') && (
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1">
                     Template *
@@ -279,6 +280,12 @@ export function RuleEditor({ rule, onClose, onSave }: RuleEditorProps) {
                       ))}
                     {action === 'apply_edge_template' &&
                       edgeTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    {action === 'apply_font_template' &&
+                      fontTemplates.map((template) => (
                         <option key={template.id} value={template.id}>
                           {template.name}
                         </option>
@@ -318,7 +325,7 @@ export function RuleEditor({ rule, onClose, onSave }: RuleEditorProps) {
             disabled={
               !name.trim() ||
               !attribute ||
-              ((action === 'apply_card_template' || action === 'apply_edge_template') &&
+              ((action === 'apply_card_template' || action === 'apply_edge_template' || action === 'apply_font_template') &&
                 !templateId) ||
               (action === 'add_tag' && !tagName.trim())
             }

@@ -12,7 +12,11 @@ import { calculateConcentricLayout } from '@/lib/layouts/concentricLayout'
 import { calculateForceLayout } from '@/lib/layouts/forceLayout'
 import { calculateTreeLayout } from '@/lib/layouts/treeLayout'
 import { calculateRadialLayout } from '@/lib/layouts/radialLayout'
-import { getVisibleNodesWithGrouping, calculateMetaNodePosition } from '@/lib/grouping'
+import { calculateHierarchicalLayout } from '@/lib/layouts/hierarchicalLayout'
+import { calculateFruchtermanLayout } from '@/lib/layouts/fruchtermanLayout'
+import { calculateKamadaKawaiLayout } from '@/lib/layouts/kamadaKawaiLayout'
+import { calculateSpectralLayout } from '@/lib/layouts/spectralLayout'
+import { getVisibleNodesWithGrouping, calculateMetaNodePosition, transformEdgesForGrouping } from '@/lib/grouping'
 import { evaluateNodeRules, evaluateEdgeRules } from '@/lib/styleEvaluator'
 import { useRulesStore } from '@/stores/rulesStore'
 
@@ -21,6 +25,14 @@ interface NodePosition {
   y: number
   vx: number
   vy: number
+}
+
+/**
+ * Generate RGB color based on time for cycling effect
+ */
+function getRGBColor(time: number, speed: number): string {
+  const hue = (time * speed * 50) % 360
+  return `hsl(${hue}, 100%, 50%)`
 }
 
 /**
@@ -44,6 +56,8 @@ export function G6Graph() {
   const [zoom, setZoom] = useState(1)
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
+  const [manuallyPositionedMetaNodes, setManuallyPositionedMetaNodes] = useState<Set<string>>(new Set())
+  const [animationTime, setAnimationTime] = useState(0)
 
   // Memoize visible nodes considering both filtering and grouping
   const visibleNodes = useMemo(() => {
@@ -59,6 +73,38 @@ export function G6Graph() {
 
     return filtered
   }, [nodes, filteredNodeIds, metaNodes])
+
+  // Memoize visible meta-nodes (only show meta-nodes that have at least one filtered child)
+  const visibleMetaNodes = useMemo(() => {
+    if (!filteredNodeIds || filteredNodeIds.size === 0) {
+      // No filter active, show all meta-nodes
+      return metaNodes
+    }
+
+    // Filter meta-nodes to only show those with at least one visible child
+    return metaNodes.filter((metaNode) => {
+      return metaNode.childNodeIds.some((childId) => filteredNodeIds.has(childId))
+    })
+  }, [metaNodes, filteredNodeIds])
+
+  // Memoize transformed edges for rendering with grouping
+  const transformedEdges = useMemo(() => {
+    if (visibleMetaNodes.length === 0) {
+      // No grouping, return edges as-is
+      return edges.map((edge) => ({
+        originalSource: edge.source,
+        originalTarget: edge.target,
+        renderSource: edge.source,
+        renderTarget: edge.target,
+        shouldRender: true,
+        sourceIsMetaNode: false,
+        targetIsMetaNode: false,
+        edge,
+      }))
+    }
+
+    return transformEdgesForGrouping(edges, visibleMetaNodes)
+  }, [edges, visibleMetaNodes])
 
   // Memoize stub count to prevent recalculation on every render
   const stubCount = useMemo(() => {
@@ -89,39 +135,64 @@ export function G6Graph() {
 
     // Check if mouse is over a meta-node first (they're larger)
     for (const [metaNodeId, pos] of metaNodePositions.entries()) {
-      const metaNode = metaNodes.find((mn) => mn.id === metaNodeId)
-      if (!metaNode || !metaNode.collapsed) continue
+      const metaNode = visibleMetaNodes.find((mn) => mn.id === metaNodeId)
+      if (!metaNode) continue
 
-      // Calculate meta-node bounding box
-      const nodeCount = metaNode.childNodeIds.length
-      const cols = Math.min(4, Math.ceil(Math.sqrt(nodeCount)))
-      const rows = Math.ceil(nodeCount / cols)
-      const cardWidth = 120
-      const cardHeight = 60
-      const spacing = 15
-      const padding = 25
-      const headerHeight = 35
-      const containerWidth = Math.max(200, cols * (cardWidth + spacing) - spacing + padding * 2)
-      const containerHeight = rows * (cardHeight + spacing) - spacing + padding * 2 + headerHeight
+      if (metaNode.collapsed) {
+        // Collapsed meta-node - check full bounding box
+        const nodeCount = metaNode.childNodeIds.length
+        const cols = Math.min(4, Math.ceil(Math.sqrt(nodeCount)))
+        const rows = Math.ceil(nodeCount / cols)
+        const cardWidth = 120
+        const cardHeight = 60
+        const spacing = 15
+        const padding = 25
+        const headerHeight = 35
+        const containerWidth = Math.max(200, cols * (cardWidth + spacing) - spacing + padding * 2)
+        const containerHeight = rows * (cardHeight + spacing) - spacing + padding * 2 + headerHeight
 
-      const containerX = pos.x - containerWidth / 2
-      const containerY = pos.y - containerHeight / 2
+        const containerX = pos.x - containerWidth / 2
+        const containerY = pos.y - containerHeight / 2
 
-      // Check if mouse is within bounding box
-      if (
-        x >= containerX &&
-        x <= containerX + containerWidth &&
-        y >= containerY &&
-        y <= containerY + containerHeight
-      ) {
-        setDraggedNodeId(metaNodeId)
-        setDragOffset({ x: x - pos.x, y: y - pos.y })
-        return
+        // Check if mouse is within bounding box
+        if (
+          x >= containerX &&
+          x <= containerX + containerWidth &&
+          y >= containerY &&
+          y <= containerY + containerHeight
+        ) {
+          setDraggedNodeId(metaNodeId)
+          setDragOffset({ x: x - pos.x, y: y - pos.y })
+          return
+        }
+      } else {
+        // Expanded meta-node - check badge area
+        const badgeWidth = 140
+        const badgeHeight = 30
+        const badgeX = pos.x - badgeWidth / 2
+        const badgeY = pos.y - badgeHeight / 2
+
+        if (
+          x >= badgeX &&
+          x <= badgeX + badgeWidth &&
+          y >= badgeY &&
+          y <= badgeY + badgeHeight
+        ) {
+          setDraggedNodeId(metaNodeId)
+          setDragOffset({ x: x - pos.x, y: y - pos.y })
+          return
+        }
       }
     }
 
-    // Check if mouse is over a regular node
+    // Check if mouse is over a regular node (skip nodes inside collapsed meta-nodes)
     for (const [nodeId, pos] of nodePositions.entries()) {
+      // Skip if this node is inside a collapsed meta-node
+      const isInsideCollapsedMetaNode = metaNodes.some(
+        (mn) => mn.collapsed && mn.childNodeIds.includes(nodeId)
+      )
+      if (isInsideCollapsedMetaNode) continue
+
       const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
       if (distance < 60) { // Hit radius for card nodes
         setDraggedNodeId(nodeId)
@@ -162,7 +233,7 @@ export function G6Graph() {
       const isMetaNode = metaNodePositions.has(draggedNodeId)
 
       if (isMetaNode) {
-        // Update meta-node position
+        // Update meta-node position and mark as manually positioned
         setMetaNodePositions((prev) => {
           const newPositions = new Map(prev)
           const currentPos = newPositions.get(draggedNodeId)
@@ -174,6 +245,12 @@ export function G6Graph() {
             })
           }
           return newPositions
+        })
+        // Mark this meta-node as manually positioned
+        setManuallyPositionedMetaNodes((prev) => {
+          const newSet = new Set(prev)
+          newSet.add(draggedNodeId)
+          return newSet
         })
       } else {
         // Update regular node position
@@ -223,16 +300,17 @@ export function G6Graph() {
     if (pos) {
       const dragDistance = Math.sqrt((x - pos.x - dragOffset.x) ** 2 + (y - pos.y - dragOffset.y) ** 2)
 
-      // If drag distance is small, treat as click
-      if (dragDistance < 5) {
+      // If drag distance is small (less than 3 pixels), treat as click
+      // Only open detail panel on true clicks, not drags
+      if (dragDistance < 3) {
         // Check if this is a meta-node click
         const isMetaNodeId = metaNodePositions.has(draggedNodeId)
 
         if (isMetaNodeId) {
-          // Dragged a meta-node - select it
+          // Clicked a meta-node - select it
           setSelectedMetaNodeId(draggedNodeId)
         } else {
-          // Dragged a regular node - select it
+          // Clicked a regular node - select it
           setSelectedNodeId(draggedNodeId)
         }
       }
@@ -267,9 +345,13 @@ export function G6Graph() {
           height,
           swimlaneAttribute: layoutConfig.timelineSwimlaneAttribute,
           verticalSpacing: layoutConfig.timelineVerticalSpacing,
+          xSpacingMultiplier: layoutConfig.timelineXSpacingMultiplier,
+          ySpacingMultiplier: layoutConfig.timelineYSpacingMultiplier,
           swimlaneSort: layoutConfig.timelineSwimlaneSort,
+          spacingMode: layoutConfig.timelineSpacingMode,
           startTime: layoutConfig.timelineStartTime,
           endTime: layoutConfig.timelineEndTime,
+          edges: edges,
         })
         result.positions.forEach((pos, nodeId) => {
           positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
@@ -336,12 +418,69 @@ export function G6Graph() {
         break
       }
 
+      case 'hierarchical': {
+        const result = calculateHierarchicalLayout(nodes, edges, {
+          width,
+          height,
+          direction: layoutConfig.hierarchicalDirection || 'top-bottom',
+          levelSeparation: layoutConfig.hierarchicalLevelSeparation || 100,
+          nodeSeparation: layoutConfig.hierarchicalNodeSeparation || 80,
+        })
+        result.positions.forEach((pos, nodeId) => {
+          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
+        })
+        setSwimlanes(new Map())
+        break
+      }
+
       case 'radial': {
         const result = calculateRadialLayout(nodes, edges, {
           width,
           height,
           innerRadius: 120,
           radiusStep: 150,
+        })
+        result.positions.forEach((pos, nodeId) => {
+          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
+        })
+        setSwimlanes(new Map())
+        break
+      }
+
+      case 'fruchterman': {
+        const result = calculateFruchtermanLayout(nodes, edges, {
+          width,
+          height,
+          iterations: 50,
+          temperature: 100,
+        })
+        result.positions.forEach((pos, nodeId) => {
+          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
+        })
+        setSwimlanes(new Map())
+        break
+      }
+
+      case 'kamada-kawai': {
+        const result = calculateKamadaKawaiLayout(nodes, edges, {
+          width,
+          height,
+          springConstant: 1,
+          springLength: 50,
+          maxIterations: 100,
+          epsilon: 0.1,
+        })
+        result.positions.forEach((pos, nodeId) => {
+          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
+        })
+        setSwimlanes(new Map())
+        break
+      }
+
+      case 'spectral': {
+        const result = calculateSpectralLayout(nodes, edges, {
+          width,
+          height,
         })
         result.positions.forEach((pos, nodeId) => {
           positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
@@ -386,19 +525,46 @@ export function G6Graph() {
   useEffect(() => {
     if (metaNodes.length === 0 || nodePositions.size === 0) {
       setMetaNodePositions(new Map())
+      setManuallyPositionedMetaNodes(new Set()) // Clear manual positioning when no meta-nodes
       return
     }
 
-    const positions = new Map<string, NodePosition>()
-    metaNodes.forEach((metaNode) => {
-      const pos = calculateMetaNodePosition(metaNode, nodePositions)
-      if (pos) {
-        positions.set(metaNode.id, { ...pos, vx: 0, vy: 0 })
-      }
+    // Clean up manually positioned set - remove IDs that no longer exist
+    const currentMetaNodeIds = new Set(metaNodes.map((mn) => mn.id))
+    setManuallyPositionedMetaNodes((prev) => {
+      const cleaned = new Set<string>()
+      prev.forEach((id) => {
+        if (currentMetaNodeIds.has(id)) {
+          cleaned.add(id)
+        }
+      })
+      return cleaned
     })
 
-    setMetaNodePositions(positions)
-  }, [metaNodes, nodePositions])
+    setMetaNodePositions((prevPositions) => {
+      const positions = new Map<string, NodePosition>()
+
+      visibleMetaNodes.forEach((metaNode) => {
+        // Check if this meta-node has been manually positioned
+        if (manuallyPositionedMetaNodes.has(metaNode.id)) {
+          // Preserve the manually set position
+          const existingPos = prevPositions.get(metaNode.id)
+          if (existingPos) {
+            positions.set(metaNode.id, existingPos)
+            return
+          }
+        }
+
+        // Calculate position from child nodes
+        const pos = calculateMetaNodePosition(metaNode, nodePositions)
+        if (pos) {
+          positions.set(metaNode.id, { ...pos, vx: 0, vy: 0 })
+        }
+      })
+
+      return positions
+    })
+  }, [metaNodes, visibleMetaNodes, nodePositions, manuallyPositionedMetaNodes])
 
   // Render graph - optimized to only render when dependencies change
   useEffect(() => {
@@ -414,6 +580,9 @@ export function G6Graph() {
     }
 
     const render = () => {
+      // Update animation time for effects
+      setAnimationTime((prev) => prev + 0.016) // Assuming ~60fps
+
       // Set canvas size
       canvas.width = canvas.offsetWidth
       canvas.height = canvas.offsetHeight
@@ -457,17 +626,27 @@ export function G6Graph() {
         })
       }
 
-      // Draw edges (only if both source and target are visible)
-      edges.forEach((edge) => {
-        // Skip if either node is filtered out
+      // Draw edges using transformed edge list (accounts for grouping)
+      transformedEdges.forEach((transformedEdge) => {
+        if (!transformedEdge.shouldRender) return
+
+        const { edge, renderSource, renderTarget, sourceIsMetaNode, targetIsMetaNode } = transformedEdge
+
+        // Skip if either original node is filtered out
         if (filteredNodeIds) {
           if (!filteredNodeIds.has(edge.source) || !filteredNodeIds.has(edge.target)) {
             return
           }
         }
 
-        const sourcePos = nodePositions.get(edge.source)
-        const targetPos = nodePositions.get(edge.target)
+        // Get positions based on whether we're rendering to node or meta-node
+        const sourcePos = sourceIsMetaNode
+          ? metaNodePositions.get(renderSource)
+          : nodePositions.get(renderSource)
+
+        const targetPos = targetIsMetaNode
+          ? metaNodePositions.get(renderTarget)
+          : nodePositions.get(renderTarget)
 
         if (sourcePos && targetPos) {
           // Evaluate rules for this edge
@@ -485,7 +664,9 @@ export function G6Graph() {
           const edgeWidth = template?.width || 2
           const edgeOpacity = template?.opacity ?? 1
           const edgeStyle = template?.style || 'solid'
+          const lineType = template?.lineType || 'straight'
           const arrowType = template?.arrowType || 'default'
+          const arrowPosition = template?.arrowPosition || 'end'
           const edgeLabel = template?.label || edge.label
 
           // Set line dash array based on style
@@ -497,71 +678,110 @@ export function G6Graph() {
             ctx.setLineDash([])
           }
 
-          // Draw edge line
+          // Draw edge line based on line type
           ctx.strokeStyle = edgeColor
           ctx.lineWidth = edgeWidth
           ctx.globalAlpha = edgeOpacity
 
-          ctx.beginPath()
-          ctx.moveTo(sourcePos.x, sourcePos.y)
-          ctx.lineTo(targetPos.x, targetPos.y)
-          ctx.stroke()
+          const nodeRadius = 30
+
+          // Draw line based on type
+          if (lineType === 'curved') {
+            // Bezier curve
+            const controlX = (sourcePos.x + targetPos.x) / 2
+            const controlY = (sourcePos.y + targetPos.y) / 2
+            const dx = targetPos.x - sourcePos.x
+            const dy = targetPos.y - sourcePos.y
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            const curvature = 0.2
+            const offsetX = -dy * curvature * (distance / 200)
+            const offsetY = dx * curvature * (distance / 200)
+
+            ctx.beginPath()
+            ctx.moveTo(sourcePos.x, sourcePos.y)
+            ctx.quadraticCurveTo(
+              controlX + offsetX,
+              controlY + offsetY,
+              targetPos.x,
+              targetPos.y
+            )
+            ctx.stroke()
+          } else if (lineType === 'orthogonal') {
+            // 90-degree turns
+            const midX = (sourcePos.x + targetPos.x) / 2
+            ctx.beginPath()
+            ctx.moveTo(sourcePos.x, sourcePos.y)
+            ctx.lineTo(midX, sourcePos.y)
+            ctx.lineTo(midX, targetPos.y)
+            ctx.lineTo(targetPos.x, targetPos.y)
+            ctx.stroke()
+          } else {
+            // Straight line (default)
+            ctx.beginPath()
+            ctx.moveTo(sourcePos.x, sourcePos.y)
+            ctx.lineTo(targetPos.x, targetPos.y)
+            ctx.stroke()
+          }
 
           // Reset line dash
           ctx.setLineDash([])
 
-          // Draw arrow if not 'none'
-          if (arrowType !== 'none') {
-            const angle = Math.atan2(targetPos.y - sourcePos.y, targetPos.x - sourcePos.x)
-            const nodeRadius = 30
-
+          // Helper function to draw arrow at a position
+          const drawArrow = (x: number, y: number, angle: number) => {
             ctx.fillStyle = edgeColor
 
             if (arrowType === 'default') {
               const arrowSize = 8
               ctx.beginPath()
-              ctx.moveTo(
-                targetPos.x - nodeRadius * Math.cos(angle),
-                targetPos.y - nodeRadius * Math.sin(angle)
+              ctx.moveTo(x, y)
+              ctx.lineTo(
+                x - arrowSize * Math.cos(angle - Math.PI / 6),
+                y - arrowSize * Math.sin(angle - Math.PI / 6)
               )
               ctx.lineTo(
-                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle - Math.PI / 6),
-                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle - Math.PI / 6)
-              )
-              ctx.lineTo(
-                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle + Math.PI / 6),
-                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle + Math.PI / 6)
+                x - arrowSize * Math.cos(angle + Math.PI / 6),
+                y - arrowSize * Math.sin(angle + Math.PI / 6)
               )
               ctx.closePath()
               ctx.fill()
             } else if (arrowType === 'triangle') {
               const arrowSize = 12
               ctx.beginPath()
-              ctx.moveTo(
-                targetPos.x - nodeRadius * Math.cos(angle),
-                targetPos.y - nodeRadius * Math.sin(angle)
+              ctx.moveTo(x, y)
+              ctx.lineTo(
+                x - arrowSize * Math.cos(angle - Math.PI / 8),
+                y - arrowSize * Math.sin(angle - Math.PI / 8)
               )
               ctx.lineTo(
-                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle - Math.PI / 8),
-                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle - Math.PI / 8)
-              )
-              ctx.lineTo(
-                targetPos.x - nodeRadius * Math.cos(angle) - arrowSize * Math.cos(angle + Math.PI / 8),
-                targetPos.y - nodeRadius * Math.sin(angle) - arrowSize * Math.sin(angle + Math.PI / 8)
+                x - arrowSize * Math.cos(angle + Math.PI / 8),
+                y - arrowSize * Math.sin(angle + Math.PI / 8)
               )
               ctx.closePath()
               ctx.fill()
             } else if (arrowType === 'circle') {
               const circleRadius = 4
               ctx.beginPath()
-              ctx.arc(
-                targetPos.x - nodeRadius * Math.cos(angle),
-                targetPos.y - nodeRadius * Math.sin(angle),
-                circleRadius,
-                0,
-                Math.PI * 2
-              )
+              ctx.arc(x, y, circleRadius, 0, Math.PI * 2)
               ctx.fill()
+            }
+          }
+
+          // Draw arrows based on arrow position
+          if (arrowType !== 'none' && arrowPosition !== 'none') {
+            const angle = Math.atan2(targetPos.y - sourcePos.y, targetPos.x - sourcePos.x)
+
+            // Draw arrow at end (target)
+            if (arrowPosition === 'end' || arrowPosition === 'both') {
+              const endX = targetPos.x - nodeRadius * Math.cos(angle)
+              const endY = targetPos.y - nodeRadius * Math.sin(angle)
+              drawArrow(endX, endY, angle)
+            }
+
+            // Draw arrow at start (source)
+            if (arrowPosition === 'start' || arrowPosition === 'both') {
+              const startX = sourcePos.x + nodeRadius * Math.cos(angle)
+              const startY = sourcePos.y + nodeRadius * Math.sin(angle)
+              drawArrow(startX, startY, angle + Math.PI) // Reverse direction
             }
           }
 
@@ -582,14 +802,55 @@ export function G6Graph() {
         }
       })
 
-      // Draw meta-nodes (collapsed groups) - showing contained nodes with full styling
-      metaNodes.forEach((metaNode) => {
-        if (!metaNode.collapsed) return // Only draw collapsed meta-nodes
-
+      // Draw meta-nodes
+      visibleMetaNodes.forEach((metaNode) => {
         const pos = metaNodePositions.get(metaNode.id)
         if (!pos) return
 
-        // Get contained nodes
+        if (!metaNode.collapsed) {
+          // Draw expanded meta-node as a small clickable badge
+          const badgeWidth = 140
+          const badgeHeight = 30
+          const badgeX = pos.x - badgeWidth / 2
+          const badgeY = pos.y - badgeHeight / 2
+          const badgeRadius = 6
+
+          // Draw badge background
+          ctx.fillStyle = '#1e40af'
+          ctx.strokeStyle = '#3b82f6'
+          ctx.lineWidth = 2
+
+          ctx.beginPath()
+          ctx.moveTo(badgeX + badgeRadius, badgeY)
+          ctx.lineTo(badgeX + badgeWidth - badgeRadius, badgeY)
+          ctx.quadraticCurveTo(badgeX + badgeWidth, badgeY, badgeX + badgeWidth, badgeY + badgeRadius)
+          ctx.lineTo(badgeX + badgeWidth, badgeY + badgeHeight - badgeRadius)
+          ctx.quadraticCurveTo(badgeX + badgeWidth, badgeY + badgeHeight, badgeX + badgeWidth - badgeRadius, badgeY + badgeHeight)
+          ctx.lineTo(badgeX + badgeRadius, badgeY + badgeHeight)
+          ctx.quadraticCurveTo(badgeX, badgeY + badgeHeight, badgeX, badgeY + badgeHeight - badgeRadius)
+          ctx.lineTo(badgeX, badgeY + badgeRadius)
+          ctx.quadraticCurveTo(badgeX, badgeY, badgeX + badgeRadius, badgeY)
+          ctx.closePath()
+          ctx.fill()
+          ctx.stroke()
+
+          // Draw badge text
+          ctx.fillStyle = '#fff'
+          ctx.font = 'bold 11px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(
+            `${metaNode.groupValue} (${metaNode.childNodeIds.length})`,
+            pos.x,
+            pos.y
+          )
+
+          return // Skip collapsed rendering
+        }
+
+        // Draw collapsed meta-node - showing contained nodes with full styling
+
+        // Get contained nodes (use ALL nodes, not just visibleNodes, to show all nodes in the collapsed group)
         const containedNodes = nodes.filter((n) => metaNode.childNodeIds.includes(n.id))
 
         // Calculate layout for contained nodes (grid layout)
@@ -597,12 +858,26 @@ export function G6Graph() {
         const cols = Math.min(4, Math.ceil(Math.sqrt(nodeCount))) // Max 4 columns
         const rows = Math.ceil(nodeCount / cols)
 
-        // Full-size node card dimensions
-        const cardWidth = 120
-        const cardHeight = 60
+        // Use base card dimensions (will be adjusted per node based on their templates)
+        const baseCardWidth = 120
+        const baseCardHeight = 60
         const spacing = 15
         const padding = 25
         const headerHeight = 35
+
+        // For container sizing, use maximum size multiplier among contained nodes
+        let maxSizeMultiplier = 1
+        containedNodes.forEach((node) => {
+          const rules = getEnabledRules()
+          const ruleResult = evaluateNodeRules(node, rules)
+          const templateId = ruleResult.cardTemplateId || node.cardTemplateId
+          const cardTemplate = templateId ? getCardTemplateById(templateId) : undefined
+          const sizeMultiplier = cardTemplate?.size || 1
+          maxSizeMultiplier = Math.max(maxSizeMultiplier, sizeMultiplier)
+        })
+
+        const cardWidth = baseCardWidth * maxSizeMultiplier
+        const cardHeight = baseCardHeight * maxSizeMultiplier
 
         const containerWidth = Math.max(200, cols * (cardWidth + spacing) - spacing + padding * 2)
         const containerHeight = rows * (cardHeight + spacing) - spacing + padding * 2 + headerHeight
@@ -661,31 +936,85 @@ export function G6Graph() {
           const templateId = ruleResult.cardTemplateId || node.cardTemplateId
           const cardTemplate = templateId ? getCardTemplateById(templateId) : undefined
 
+          // Apply size multiplier for this specific node
+          const nodeSizeMultiplier = cardTemplate?.size || 1
+          const nodeCardWidth = baseCardWidth * nodeSizeMultiplier
+          const nodeCardHeight = baseCardHeight * nodeSizeMultiplier
+
           // Draw node card (same as regular nodes but without selection highlight)
-          const x = nodeX - cardWidth / 2
-          const y = nodeY - cardHeight / 2
-          const cardRadius = 8
+          const x = nodeX - nodeCardWidth / 2
+          const y = nodeY - nodeCardHeight / 2
 
           // Get template colors or defaults
           const bgColor = cardTemplate?.backgroundColor || (node.isStub ? '#1e293b' : '#0f172a')
           const borderColor = cardTemplate?.borderColor || (node.isStub ? '#475569' : '#0891b2')
           const borderWidth = cardTemplate?.borderWidth || 2
+          const shape = cardTemplate?.shape || 'rect'
 
           ctx.fillStyle = bgColor
           ctx.strokeStyle = borderColor
           ctx.lineWidth = borderWidth
 
+          // Draw shape based on template
           ctx.beginPath()
-          ctx.moveTo(x + cardRadius, y)
-          ctx.lineTo(x + cardWidth - cardRadius, y)
-          ctx.quadraticCurveTo(x + cardWidth, y, x + cardWidth, y + cardRadius)
-          ctx.lineTo(x + cardWidth, y + cardHeight - cardRadius)
-          ctx.quadraticCurveTo(x + cardWidth, y + cardHeight, x + cardWidth - cardRadius, y + cardHeight)
-          ctx.lineTo(x + cardRadius, y + cardHeight)
-          ctx.quadraticCurveTo(x, y + cardHeight, x, y + cardHeight - cardRadius)
-          ctx.lineTo(x, y + cardRadius)
-          ctx.quadraticCurveTo(x, y, x + cardRadius, y)
-          ctx.closePath()
+
+          switch (shape) {
+            case 'circle':
+              const circleRadius = Math.min(nodeCardWidth, nodeCardHeight) / 2
+              ctx.arc(nodeX, nodeY, circleRadius, 0, Math.PI * 2)
+              break
+
+            case 'ellipse':
+              ctx.ellipse(nodeX, nodeY, nodeCardWidth / 2, nodeCardHeight / 2, 0, 0, Math.PI * 2)
+              break
+
+            case 'diamond':
+              ctx.moveTo(nodeX, y)
+              ctx.lineTo(x + nodeCardWidth, nodeY)
+              ctx.lineTo(nodeX, y + nodeCardHeight)
+              ctx.lineTo(x, nodeY)
+              ctx.closePath()
+              break
+
+            case 'triangle':
+              ctx.moveTo(nodeX, y)
+              ctx.lineTo(x + nodeCardWidth, y + nodeCardHeight)
+              ctx.lineTo(x, y + nodeCardHeight)
+              ctx.closePath()
+              break
+
+            case 'star':
+              const outerRadius = Math.min(nodeCardWidth, nodeCardHeight) / 2
+              const innerRadius = outerRadius * 0.4
+              for (let i = 0; i < 5; i++) {
+                const outerAngle = (i * 4 * Math.PI) / 5 - Math.PI / 2
+                const innerAngle = ((i * 4 + 2) * Math.PI) / 5 - Math.PI / 2
+                if (i === 0) {
+                  ctx.moveTo(nodeX + outerRadius * Math.cos(outerAngle), nodeY + outerRadius * Math.sin(outerAngle))
+                } else {
+                  ctx.lineTo(nodeX + outerRadius * Math.cos(outerAngle), nodeY + outerRadius * Math.sin(outerAngle))
+                }
+                ctx.lineTo(nodeX + innerRadius * Math.cos(innerAngle), nodeY + innerRadius * Math.sin(innerAngle))
+              }
+              ctx.closePath()
+              break
+
+            case 'rect':
+            default:
+              const cardRadius = 8
+              ctx.moveTo(x + cardRadius, y)
+              ctx.lineTo(x + nodeCardWidth - cardRadius, y)
+              ctx.quadraticCurveTo(x + nodeCardWidth, y, x + nodeCardWidth, y + cardRadius)
+              ctx.lineTo(x + nodeCardWidth, y + nodeCardHeight - cardRadius)
+              ctx.quadraticCurveTo(x + nodeCardWidth, y + nodeCardHeight, x + nodeCardWidth - cardRadius, y + nodeCardHeight)
+              ctx.lineTo(x + cardRadius, y + nodeCardHeight)
+              ctx.quadraticCurveTo(x, y + nodeCardHeight, x, y + nodeCardHeight - cardRadius)
+              ctx.lineTo(x, y + cardRadius)
+              ctx.quadraticCurveTo(x, y, x + cardRadius, y)
+              ctx.closePath()
+              break
+          }
+
           ctx.fill()
           ctx.stroke()
 
@@ -707,59 +1036,240 @@ export function G6Graph() {
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
           const label = node.label.length > 14 ? node.label.substring(0, 14) + '...' : node.label
-          ctx.fillText(label, nodeX, y + cardHeight - 15)
+          ctx.fillText(label, nodeX, y + nodeCardHeight - 15)
         })
       })
 
       // Draw nodes as cards (only visible nodes)
       visibleNodes.forEach((node) => {
         const pos = nodePositions.get(node.id)
-        if (!pos) return
+        if (!pos) {
+          // Debug: log nodes without positions
+          console.warn(`Node ${node.id} is visible but has no position`)
+          return
+        }
 
         const isSelected = node.id === selectedNodeId
-        const cardWidth = 120
-        const cardHeight = 60
 
-        // Draw card background
-        ctx.fillStyle = node.isStub ? '#1e293b' : '#0f172a'
-        ctx.strokeStyle = isSelected ? '#22d3ee' : node.isStub ? '#475569' : '#0891b2'
-        ctx.lineWidth = isSelected ? 3 : 2
+        // Evaluate rules for this node FIRST to get card template
+        const rules = getEnabledRules()
+        const ruleResult = evaluateNodeRules(node, rules)
+        const templateId = ruleResult.cardTemplateId || node.cardTemplateId
+        const cardTemplate = templateId ? getCardTemplateById(templateId) : undefined
 
-        // Rounded rectangle for card
-        const x = pos.x - cardWidth / 2
-        const y = pos.y - cardHeight / 2
-        const radius = 8
+        // Apply size multiplier from template
+        const sizeMultiplier = cardTemplate?.size || 1
+        let cardWidth = 120 * sizeMultiplier
+        let cardHeight = 60 * sizeMultiplier
 
-        ctx.beginPath()
-        ctx.moveTo(x + radius, y)
-        ctx.lineTo(x + cardWidth - radius, y)
-        ctx.quadraticCurveTo(x + cardWidth, y, x + cardWidth, y + radius)
-        ctx.lineTo(x + cardWidth, y + cardHeight - radius)
-        ctx.quadraticCurveTo(x + cardWidth, y + cardHeight, x + cardWidth - radius, y + cardHeight)
-        ctx.lineTo(x + radius, y + cardHeight)
-        ctx.quadraticCurveTo(x, y + cardHeight, x, y + cardHeight - radius)
-        ctx.lineTo(x, y + radius)
-        ctx.quadraticCurveTo(x, y, x + radius, y)
-        ctx.closePath()
-        ctx.fill()
-        ctx.stroke()
+        // Auto-fit: measure all visible content and adjust card size if needed
+        if (cardTemplate?.autoFit) {
+          let maxWidth = 0
+          let totalHeight = 0
 
-        // Draw icon circle
-        const iconRadius = 16
-        const iconX = pos.x
-        const iconY = pos.y - 15
+          // Measure label
+          ctx.font = '12px sans-serif'
+          maxWidth = Math.max(maxWidth, ctx.measureText(node.label).width)
+          totalHeight += 20 // Label height
 
-        ctx.fillStyle = node.isStub ? '#64748b' : '#06b6d4'
-        ctx.beginPath()
-        ctx.arc(iconX, iconY, iconRadius, 0, Math.PI * 2)
-        ctx.fill()
+          // Measure visible attributes
+          if (cardTemplate?.attributeDisplays && cardTemplate.attributeDisplays.length > 0) {
+            const visibleAttrs = cardTemplate.attributeDisplays
+              .filter((attrDisplay) => attrDisplay.visible)
+              .sort((a, b) => a.order - b.order)
 
-        // Draw icon (simple letter)
-        ctx.fillStyle = '#fff'
-        ctx.font = 'bold 14px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(node.label.charAt(0).toUpperCase(), iconX, iconY)
+            visibleAttrs.forEach((attrDisplay) => {
+              let attrValue = ''
+              if (attrDisplay.attributeName === '__id__') {
+                attrValue = node.id
+              } else if (node.attributes[attrDisplay.attributeName]) {
+                const value = node.attributes[attrDisplay.attributeName]
+                attrValue = Array.isArray(value) ? value.join(', ') : value
+              }
+
+              if (attrValue) {
+                const fontSize = attrDisplay.fontSize || 10
+                ctx.font = `${fontSize}px sans-serif`
+                const labelText = attrDisplay.displayLabel || attrDisplay.attributeName
+                const prefix = attrDisplay.prefix || ''
+                const suffix = attrDisplay.suffix || ''
+                const fullText = `${prefix}${labelText}: ${attrValue}${suffix}`
+                maxWidth = Math.max(maxWidth, ctx.measureText(fullText).width)
+                totalHeight += fontSize + 4 // Attribute height + spacing
+              }
+            })
+          }
+
+          // Add padding and apply
+          const requiredWidth = maxWidth + 40
+          const requiredHeight = totalHeight + 50 // Extra padding for icon
+          cardWidth = Math.max(cardWidth, requiredWidth)
+          cardHeight = Math.max(cardHeight, requiredHeight)
+        }
+
+        // Debug: log if template is missing when expected
+        if (templateId && !cardTemplate) {
+          console.warn(`Node ${node.id} has templateId ${templateId} but template not found`)
+        }
+
+        // Draw card background using template colors or defaults
+        const bgColor = cardTemplate?.backgroundColor || (node.isStub ? '#1e293b' : '#0f172a')
+        let borderColor = cardTemplate?.borderColor || (node.isStub ? '#475569' : '#0891b2')
+        const borderWidth = cardTemplate?.borderWidth || 2
+        const shape = cardTemplate?.shape || 'rect'
+        const effects = cardTemplate?.effects
+
+        // Apply RGB cycling to border if enabled
+        if (effects?.rgbCycle?.enabled && (effects.rgbCycle.target === 'border' || effects.rgbCycle.target === 'both')) {
+          borderColor = getRGBColor(animationTime, effects.rgbCycle.speed)
+        }
+
+        // Apply shadow effect if enabled
+        if (effects?.shadow?.enabled) {
+          ctx.shadowColor = effects.shadow.color
+          ctx.shadowBlur = effects.shadow.blur
+          ctx.shadowOffsetX = effects.shadow.offsetX
+          ctx.shadowOffsetY = effects.shadow.offsetY
+        }
+
+        // Apply pulse effect if enabled (scale based on time)
+        let pulseScale = 1
+        if (effects?.pulse?.enabled) {
+          const pulseSpeed = effects.pulse.speed
+          pulseScale = 1 + Math.sin(animationTime * pulseSpeed * 2) * 0.1
+        }
+
+        // Apply glow effect if enabled
+        if (effects?.glow?.enabled) {
+          let glowColor = effects.glow.color
+          if (effects.rgbCycle?.enabled && (effects.rgbCycle.target === 'glow' || effects.rgbCycle.target === 'both')) {
+            glowColor = getRGBColor(animationTime, effects.rgbCycle.speed)
+          }
+          ctx.shadowColor = glowColor
+          ctx.shadowBlur = effects.glow.blur * effects.glow.intensity
+          ctx.shadowOffsetX = 0
+          ctx.shadowOffsetY = 0
+        }
+
+        // Check if shape should be transparent
+        const transparentShape = cardTemplate?.transparentShape || false
+
+        ctx.fillStyle = bgColor
+        ctx.strokeStyle = isSelected ? '#22d3ee' : borderColor
+        ctx.lineWidth = isSelected ? 3 : borderWidth
+
+        // Draw shape based on template (skip if transparent)
+        const adjustedWidth = cardWidth * pulseScale
+        const adjustedHeight = cardHeight * pulseScale
+        const x = pos.x - adjustedWidth / 2
+        const y = pos.y - adjustedHeight / 2
+
+        if (!transparentShape) {
+          ctx.beginPath()
+
+          switch (shape) {
+          case 'circle':
+            // Draw as circle using the average of width/height as diameter
+            const circleRadius = Math.min(adjustedWidth, adjustedHeight) / 2
+            ctx.arc(pos.x, pos.y, circleRadius * pulseScale, 0, Math.PI * 2)
+            break
+
+          case 'ellipse':
+            // Draw as ellipse
+            ctx.ellipse(pos.x, pos.y, adjustedWidth / 2, adjustedHeight / 2, 0, 0, Math.PI * 2)
+            break
+
+          case 'diamond':
+            // Draw as diamond (rotated square)
+            ctx.moveTo(pos.x, y) // Top point
+            ctx.lineTo(x + adjustedWidth, pos.y) // Right point
+            ctx.lineTo(pos.x, y + adjustedHeight) // Bottom point
+            ctx.lineTo(x, pos.y) // Left point
+            ctx.closePath()
+            break
+
+          case 'triangle':
+            // Draw as triangle
+            ctx.moveTo(pos.x, y) // Top point
+            ctx.lineTo(x + adjustedWidth, y + adjustedHeight) // Bottom right
+            ctx.lineTo(x, y + adjustedHeight) // Bottom left
+            ctx.closePath()
+            break
+
+          case 'star':
+            // Draw as 5-point star
+            const outerRadius = Math.min(adjustedWidth, adjustedHeight) / 2
+            const innerRadius = outerRadius * 0.4
+            for (let i = 0; i < 5; i++) {
+              const outerAngle = (i * 4 * Math.PI) / 5 - Math.PI / 2
+              const innerAngle = ((i * 4 + 2) * Math.PI) / 5 - Math.PI / 2
+              if (i === 0) {
+                ctx.moveTo(pos.x + outerRadius * Math.cos(outerAngle), pos.y + outerRadius * Math.sin(outerAngle))
+              } else {
+                ctx.lineTo(pos.x + outerRadius * Math.cos(outerAngle), pos.y + outerRadius * Math.sin(outerAngle))
+              }
+              ctx.lineTo(pos.x + innerRadius * Math.cos(innerAngle), pos.y + innerRadius * Math.sin(innerAngle))
+            }
+            ctx.closePath()
+            break
+
+          case 'rect':
+          default:
+            // Draw as rounded rectangle (default)
+            const radius = 8
+            ctx.moveTo(x + radius, y)
+            ctx.lineTo(x + adjustedWidth - radius, y)
+            ctx.quadraticCurveTo(x + adjustedWidth, y, x + adjustedWidth, y + radius)
+            ctx.lineTo(x + adjustedWidth, y + adjustedHeight - radius)
+            ctx.quadraticCurveTo(x + adjustedWidth, y + adjustedHeight, x + adjustedWidth - radius, y + adjustedHeight)
+            ctx.lineTo(x + radius, y + adjustedHeight)
+            ctx.quadraticCurveTo(x, y + adjustedHeight, x, y + adjustedHeight - radius)
+            ctx.lineTo(x, y + radius)
+            ctx.quadraticCurveTo(x, y, x + radius, y)
+            ctx.closePath()
+            break
+          }
+
+          ctx.fill()
+          ctx.stroke()
+        }
+
+        // Reset shadow after drawing shape
+        ctx.shadowColor = 'transparent'
+        ctx.shadowBlur = 0
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 0
+
+        // Draw icon circle or template icon (if showIcon is not false)
+        const showIcon = cardTemplate?.showIcon !== false
+        if (showIcon) {
+          const iconRadius = 16
+          const iconX = pos.x
+          const iconY = pos.y - 15
+
+          if (cardTemplate?.icon) {
+            // Use template icon with custom size
+            const iconSize = cardTemplate.iconSize ? cardTemplate.iconSize * 16 : 16
+            ctx.font = `${iconSize}px sans-serif`
+            ctx.fillStyle = cardTemplate.iconColor || '#fff'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(cardTemplate.icon, iconX, iconY)
+          } else {
+            // Default icon circle with first letter
+            ctx.fillStyle = node.isStub ? '#64748b' : '#06b6d4'
+            ctx.beginPath()
+            ctx.arc(iconX, iconY, iconRadius, 0, Math.PI * 2)
+            ctx.fill()
+
+            // Draw icon (simple letter)
+            ctx.fillStyle = '#fff'
+            ctx.font = 'bold 14px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(node.label.charAt(0).toUpperCase(), iconX, iconY)
+          }
+        }
 
         // Draw label
         ctx.fillStyle = '#e2e8f0'
@@ -769,16 +1279,7 @@ export function G6Graph() {
         const label = node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label
         ctx.fillText(label, pos.x, pos.y + 8)
 
-        // Evaluate rules for this node
-        const rules = getEnabledRules()
-        const ruleResult = evaluateNodeRules(node, rules)
-
-        // Get card template (rule result takes priority over node.cardTemplateId)
-        const templateId = ruleResult.cardTemplateId || node.cardTemplateId
-        const cardTemplate = templateId
-          ? getCardTemplateById(templateId)
-          : undefined
-
+        // Render attributes from card template (already evaluated above)
         if (cardTemplate?.attributeDisplays && cardTemplate.attributeDisplays.length > 0) {
           // Render attributes based on template configuration
           const visibleAttrs = cardTemplate.attributeDisplays
@@ -846,9 +1347,12 @@ export function G6Graph() {
 
       // Restore context
       ctx.restore()
+
+      // Request next animation frame for continuous rendering (for animations)
+      animationRef.current = requestAnimationFrame(render)
     }
 
-    // Render once when dependencies change
+    // Start render loop
     render()
 
     return () => {
@@ -856,7 +1360,7 @@ export function G6Graph() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [nodes, edges, nodePositions, selectedNodeId, filteredNodeIds, visibleNodes, swimlanes, metaNodes, metaNodePositions, panOffset, zoom])
+  }, [nodes, edges, nodePositions, selectedNodeId, filteredNodeIds, visibleNodes, swimlanes, metaNodes, visibleMetaNodes, metaNodePositions, panOffset, zoom, transformedEdges])
 
   return (
     <div className="relative w-full h-full">

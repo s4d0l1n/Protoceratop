@@ -31,6 +31,7 @@ export function useProjectIO() {
         edges: graphStore.edges,
         cardTemplates: templateStore.cardTemplates,
         edgeTemplates: templateStore.edgeTemplates,
+        fontTemplates: templateStore.fontTemplates,
         styleRules: rulesStore.styleRules,
         layoutConfig: projectStore.layoutConfig,
       })
@@ -73,6 +74,11 @@ export function useProjectIO() {
       state.edgeTemplates.forEach((template) => {
         templateStore.addEdgeTemplate(template)
       })
+      if (state.fontTemplates) {
+        state.fontTemplates.forEach((template) => {
+          templateStore.addFontTemplate(template)
+        })
+      }
 
       // Restore style rules
       state.styleRules.forEach((rule) => {

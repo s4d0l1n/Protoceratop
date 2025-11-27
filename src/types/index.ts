@@ -224,19 +224,66 @@ export interface CardTemplate {
   borderWidth: number
   /** Node shape */
   shape: NodeShape
+  /** Transparent shape (only show icon/image) */
+  transparentShape?: boolean
   /** Icon (emoji or data URL) */
   icon?: string
   /** Icon color (for SVG icons) */
   iconColor?: string
+  /** Show icon (if false, icon is hidden) */
+  showIcon?: boolean
+  /** Icon size multiplier */
+  iconSize?: number
   /** Size multiplier */
   size: number
+  /** Auto-fit size to content (prevents label overflow) */
+  autoFit?: boolean
   /** Attributes to display */
   attributeDisplays: AttributeDisplay[]
   /** Is this the default template */
   isDefault: boolean
   /** Creation timestamp */
   createdAt: number
+  /** Visual effects */
+  effects?: {
+    /** Shadow effect */
+    shadow?: {
+      enabled: boolean
+      color: string
+      blur: number
+      offsetX: number
+      offsetY: number
+    }
+    /** Glow effect */
+    glow?: {
+      enabled: boolean
+      color: string
+      blur: number
+      intensity: number
+    }
+    /** Pulse animation */
+    pulse?: {
+      enabled: boolean
+      speed: number // 0.5 = slow, 1 = normal, 2 = fast
+    }
+    /** RGB color cycle animation */
+    rgbCycle?: {
+      enabled: boolean
+      speed: number
+      target: 'border' | 'glow' | 'both'
+    }
+  }
 }
+
+/**
+ * Edge line type (how the edge is drawn)
+ */
+export type EdgeLineType = 'straight' | 'curved' | 'orthogonal'
+
+/**
+ * Arrow position on edge
+ */
+export type ArrowPosition = 'none' | 'end' | 'start' | 'both'
 
 /**
  * Edge template for connection styling
@@ -254,12 +301,72 @@ export interface EdgeTemplate {
   width: number
   /** Line style */
   style: 'solid' | 'dashed' | 'dotted'
+  /** Line type (straight, curved, orthogonal) */
+  lineType: EdgeLineType
   /** Arrow type */
   arrowType: 'default' | 'triangle' | 'circle' | 'none'
+  /** Arrow position (start, end, both, none) */
+  arrowPosition: ArrowPosition
   /** Label */
   label?: string
   /** Opacity (0-1) */
   opacity: number
+  /** Is this the default template */
+  isDefault: boolean
+  /** Creation timestamp */
+  createdAt: number
+}
+
+/**
+ * Font/text template for text styling
+ */
+export interface FontTemplate {
+  /** Unique identifier */
+  id: string
+  /** Template name */
+  name: string
+  /** Description */
+  description?: string
+  /** Font family */
+  fontFamily: string
+  /** Font size (multiplier) */
+  fontSize: number
+  /** Font weight */
+  fontWeight: 'normal' | 'bold' | 'lighter' | 'bolder'
+  /** Font style */
+  fontStyle: 'normal' | 'italic' | 'oblique'
+  /** Text color */
+  color: string
+  /** Background color (highlight) */
+  backgroundColor?: string
+  /** Text decoration */
+  textDecoration: 'none' | 'underline' | 'line-through' | 'overline'
+  /** Text transform */
+  textTransform: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+  /** Text shadow */
+  textShadow?: {
+    enabled: boolean
+    color: string
+    blur: number
+    offsetX: number
+    offsetY: number
+  }
+  /** Text effects */
+  effects?: {
+    /** Glow effect */
+    glow?: {
+      enabled: boolean
+      color: string
+      intensity: number
+    }
+    /** Gradient text */
+    gradient?: {
+      enabled: boolean
+      startColor: string
+      endColor: string
+      direction: 'horizontal' | 'vertical'
+    }
+  }
   /** Is this the default template */
   isDefault: boolean
   /** Creation timestamp */
@@ -291,6 +398,7 @@ export type ConditionOperator =
 export type RuleAction =
   | 'apply_card_template'
   | 'apply_edge_template'
+  | 'apply_font_template'
   | 'add_tag'
 
 /**
@@ -340,16 +448,19 @@ export interface StyleRule {
  * Graph layout types
  */
 export type LayoutType =
-  | 'force'
-  | 'tree'
-  | 'radial'
-  | 'fcose'
-  | 'dagre'
-  | 'timeline'
-  | 'concentric'
-  | 'circle'
-  | 'grid'
-  | 'preset'
+  | 'force'          // Force-directed physics simulation
+  | 'hierarchical'   // Hierarchical tree layout (formerly 'tree')
+  | 'radial'         // Radial layout from center
+  | 'fcose'          // Fast compound spring embedder
+  | 'dagre'          // Directed acyclic graph layout
+  | 'timeline'       // Timeline with swimlanes
+  | 'concentric'     // Concentric circles
+  | 'circle'         // Simple circle layout
+  | 'grid'           // Regular grid layout
+  | 'preset'         // Use preset X/Y positions
+  | 'fruchterman'    // Fruchterman-Reingold algorithm
+  | 'kamada-kawai'   // Kamada-Kawai algorithm
+  | 'spectral'       // Spectral layout
 
 /**
  * Timeline layout sort options
@@ -357,21 +468,54 @@ export type LayoutType =
 export type TimelineSortOrder = 'alphabetical' | 'count' | 'custom'
 
 /**
+ * Timeline spacing mode
+ */
+export type TimelineSpacingMode = 'relative' | 'equal'
+
+/**
+ * Hierarchical layout orientation
+ */
+export type HierarchicalOrientation = 'vertical' | 'horizontal'
+
+/**
+ * Hierarchical layout direction
+ */
+export type HierarchicalDirection = 'top-bottom' | 'bottom-top' | 'left-right' | 'right-left'
+
+/**
  * Layout configuration
  */
 export interface LayoutConfig {
   /** Layout type */
   type: LayoutType
+
+  // Timeline layout options
   /** Timeline swimlane attribute (for timeline layout) */
   timelineSwimlaneAttribute?: string
   /** Vertical spacing between swimlanes (timeline) */
   timelineVerticalSpacing?: number
+  /** X-axis spacing multiplier (timeline) - affects horizontal time spacing */
+  timelineXSpacingMultiplier?: number
+  /** Y-axis spacing multiplier (timeline) - affects vertical node spacing within swimlanes */
+  timelineYSpacingMultiplier?: number
   /** Sort order for swimlanes (timeline) */
   timelineSwimlaneSort?: TimelineSortOrder
+  /** Spacing mode (timeline) - relative to time or equal spacing */
+  timelineSpacingMode?: TimelineSpacingMode
   /** Time range filter - start timestamp (timeline) */
   timelineStartTime?: number
   /** Time range filter - end timestamp (timeline) */
   timelineEndTime?: number
+
+  // Hierarchical layout options
+  /** Hierarchical layout direction */
+  hierarchicalDirection?: HierarchicalDirection
+  /** Level separation (spacing between levels) */
+  hierarchicalLevelSeparation?: number
+  /** Node separation (spacing between nodes on same level) */
+  hierarchicalNodeSeparation?: number
+
+  // General options
   /** Custom options */
   options?: Record<string, unknown>
 }
@@ -404,6 +548,8 @@ export interface ProjectState {
   cardTemplates: CardTemplate[]
   /** Edge templates */
   edgeTemplates: EdgeTemplate[]
+  /** Font templates */
+  fontTemplates: FontTemplate[]
   /** Style rules */
   styleRules: StyleRule[]
   /** Layout configuration */

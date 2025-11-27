@@ -3,15 +3,21 @@
  * Positions nodes on X-axis by timestamp and groups on Y-axis
  */
 
-import type { GraphNode, TimelineSortOrder } from '@/types'
+import type { GraphNode, GraphEdge, TimelineSortOrder, TimelineSpacingMode } from '@/types'
 
 export interface TimelineLayoutOptions {
   /** Attribute to group by for Y-axis swimlanes (optional) */
   swimlaneAttribute?: string
   /** Vertical spacing between swimlanes on Y-axis */
   verticalSpacing?: number
+  /** X-axis spacing multiplier (affects horizontal time spacing) */
+  xSpacingMultiplier?: number
+  /** Y-axis spacing multiplier (affects vertical spacing within swimlanes) */
+  ySpacingMultiplier?: number
   /** Sort order for swimlanes */
   swimlaneSort?: TimelineSortOrder
+  /** Spacing mode - relative to time or equal spacing */
+  spacingMode?: TimelineSpacingMode
   /** Start time filter (only show nodes after this timestamp) */
   startTime?: number
   /** End time filter (only show nodes before this timestamp) */
@@ -20,6 +26,8 @@ export interface TimelineLayoutOptions {
   width: number
   /** Canvas height */
   height: number
+  /** Graph edges (for positioning stub nodes near parents) */
+  edges?: GraphEdge[]
 }
 
 export interface LayoutResult {
@@ -37,18 +45,26 @@ export function calculateTimelineLayout(
   const {
     swimlaneAttribute,
     verticalSpacing = 120,
+    xSpacingMultiplier = 1.0,
+    ySpacingMultiplier = 1.0,
     swimlaneSort = 'alphabetical',
+    spacingMode = 'relative',
     startTime,
     endTime,
     width,
     height,
+    edges = [],
   } = options
 
   const positions = new Map<string, { x: number; y: number }>()
   const swimlanes = new Map<string, number>()
 
-  // Filter nodes with timestamps and apply time range filter
-  let nodesWithTime = nodes.filter((n) => n.timestamp !== undefined)
+  // Separate stub nodes from regular nodes
+  const stubNodes = nodes.filter((n) => n.isStub)
+  const regularNodes = nodes.filter((n) => !n.isStub)
+
+  // Filter regular nodes with timestamps and apply time range filter
+  let nodesWithTime = regularNodes.filter((n) => n.timestamp !== undefined)
 
   // Apply time range filtering
   if (startTime !== undefined) {
@@ -58,18 +74,27 @@ export function calculateTimelineLayout(
     nodesWithTime = nodesWithTime.filter((n) => (n.timestamp || 0) <= endTime)
   }
 
-  const nodesWithoutTime = nodes.filter((n) => n.timestamp === undefined)
+  const nodesWithoutTime = regularNodes.filter((n) => n.timestamp === undefined)
 
   if (nodesWithTime.length === 0) {
-    // No timestamps, fall back to simple layout
-    nodes.forEach((node, i) => {
-      const angle = (i / nodes.length) * Math.PI * 2
+    // No timestamps, fall back to simple layout for regular nodes
+    regularNodes.forEach((node, i) => {
+      const angle = (i / regularNodes.length) * Math.PI * 2
       const radius = Math.min(width, height) / 3
       positions.set(node.id, {
         x: width / 2 + Math.cos(angle) * radius,
         y: height / 2 + Math.sin(angle) * radius,
       })
     })
+
+    // Position stub nodes to the right of the canvas
+    stubNodes.forEach((node, i) => {
+      positions.set(node.id, {
+        x: width - 50,
+        y: 50 + i * 40,
+      })
+    })
+
     return { positions, swimlanes }
   }
 
@@ -116,33 +141,64 @@ export function calculateTimelineLayout(
 
     // Assign Y positions to swimlanes with configurable spacing
     const swimlaneCount = groups.length
-    const swimlaneHeight = Math.max(verticalSpacing, (height - 100) / swimlaneCount)
+    const swimlaneHeight = Math.max(verticalSpacing, (height - 100) / swimlaneCount) * ySpacingMultiplier
 
     groups.forEach((group, i) => {
       const yPos = 50 + i * swimlaneHeight + swimlaneHeight / 2
       swimlanes.set(group, yPos)
     })
 
-    // Position nodes
-    groupMap.forEach((groupNodes, group) => {
-      const yPos = swimlanes.get(group) || height / 2
+    // Position nodes based on spacing mode
+    if (spacingMode === 'equal') {
+      // Equal spacing mode - nodes evenly distributed, sorted by time
+      groupMap.forEach((groupNodes, group) => {
+        const yPos = swimlanes.get(group) || height / 2
+        const nodeCount = groupNodes.length
 
-      groupNodes.forEach((node) => {
-        const timeFraction = ((node.timestamp || 0) - minTime) / timeRange
-        const xPos = 50 + timeFraction * (width - 100)
+        groupNodes.forEach((node, index) => {
+          const xPos = nodeCount > 1
+            ? 50 + (index / (nodeCount - 1)) * (width - 100) * xSpacingMultiplier
+            : width / 2
+
+          positions.set(node.id, { x: xPos, y: yPos })
+        })
+      })
+    } else {
+      // Relative spacing mode - positions relative to timestamp
+      groupMap.forEach((groupNodes, group) => {
+        const yPos = swimlanes.get(group) || height / 2
+
+        groupNodes.forEach((node) => {
+          const timeFraction = ((node.timestamp || 0) - minTime) / timeRange
+          const xPos = 50 + timeFraction * (width - 100) * xSpacingMultiplier
+
+          positions.set(node.id, { x: xPos, y: yPos })
+        })
+      })
+    }
+  } else {
+    // No swimlanes
+    if (spacingMode === 'equal') {
+      // Equal spacing mode - nodes evenly distributed, sorted by time
+      const nodeCount = sortedNodes.length
+      sortedNodes.forEach((node, index) => {
+        const xPos = nodeCount > 1
+          ? 50 + (index / (nodeCount - 1)) * (width - 100) * xSpacingMultiplier
+          : width / 2
+        const yPos = height / 2 + (Math.random() - 0.5) * (height / 3) * ySpacingMultiplier
 
         positions.set(node.id, { x: xPos, y: yPos })
       })
-    })
-  } else {
-    // No swimlanes, use Y-axis jitter
-    sortedNodes.forEach((node) => {
-      const timeFraction = ((node.timestamp || 0) - minTime) / timeRange
-      const xPos = 50 + timeFraction * (width - 100)
-      const yPos = height / 2 + (Math.random() - 0.5) * (height / 3)
+    } else {
+      // Relative spacing mode - use Y-axis jitter
+      sortedNodes.forEach((node) => {
+        const timeFraction = ((node.timestamp || 0) - minTime) / timeRange
+        const xPos = 50 + timeFraction * (width - 100) * xSpacingMultiplier
+        const yPos = height / 2 + (Math.random() - 0.5) * (height / 3) * ySpacingMultiplier
 
-      positions.set(node.id, { x: xPos, y: yPos })
-    })
+        positions.set(node.id, { x: xPos, y: yPos })
+      })
+    }
   }
 
   // Position nodes without timestamps at the end
@@ -151,6 +207,38 @@ export function calculateTimelineLayout(
     const yPos = 50 + i * 40
 
     positions.set(node.id, { x: xPos, y: yPos })
+  })
+
+  // Position stub nodes adjacent to their parent nodes
+  const stubGap = 80 // Gap between parent and stub node
+  const stubVerticalOffset = 0 // Vertical offset from parent
+
+  stubNodes.forEach((stubNode) => {
+    // Find parent node (node that links to this stub)
+    const parentEdge = edges.find((edge) => edge.target === stubNode.id)
+
+    if (parentEdge) {
+      const parentPos = positions.get(parentEdge.source)
+      if (parentPos) {
+        // Position stub node to the right of parent with a gap
+        positions.set(stubNode.id, {
+          x: parentPos.x + stubGap,
+          y: parentPos.y + stubVerticalOffset,
+        })
+      } else {
+        // Fallback: position at the right edge
+        positions.set(stubNode.id, {
+          x: width - 50,
+          y: height / 2,
+        })
+      }
+    } else {
+      // No parent found, position at the right edge
+      positions.set(stubNode.id, {
+        x: width - 50,
+        y: height / 2,
+      })
+    }
   })
 
   return { positions, swimlanes }

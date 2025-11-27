@@ -4,7 +4,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { toast } from './Toast'
-import type { LayoutType, TimelineSortOrder } from '@/types'
+import type { LayoutType, TimelineSortOrder, HierarchicalDirection, TimelineSpacingMode } from '@/types'
 
 interface LayoutOption {
   type: LayoutType
@@ -29,8 +29,26 @@ export function LayoutPanel() {
   const [verticalSpacing, setVerticalSpacing] = useState(
     layoutConfig.timelineVerticalSpacing || 120
   )
+  const [xSpacingMultiplier, setXSpacingMultiplier] = useState(
+    layoutConfig.timelineXSpacingMultiplier || 1.0
+  )
+  const [ySpacingMultiplier, setYSpacingMultiplier] = useState(
+    layoutConfig.timelineYSpacingMultiplier || 1.0
+  )
   const [swimlaneSort, setSwimlaneSort] = useState<TimelineSortOrder>(
     layoutConfig.timelineSwimlaneSort || 'alphabetical'
+  )
+  const [spacingMode, setSpacingMode] = useState<TimelineSpacingMode>(
+    layoutConfig.timelineSpacingMode || 'relative'
+  )
+  const [hierarchicalDirection, setHierarchicalDirection] = useState<HierarchicalDirection>(
+    layoutConfig.hierarchicalDirection || 'top-bottom'
+  )
+  const [levelSeparation, setLevelSeparation] = useState(
+    layoutConfig.hierarchicalLevelSeparation || 100
+  )
+  const [nodeSeparation, setNodeSeparation] = useState(
+    layoutConfig.hierarchicalNodeSeparation || 80
   )
 
   const isOpen = activePanel === 'layout'
@@ -52,9 +70,9 @@ export function LayoutPanel() {
       icon: <Network className="w-6 h-6" />,
     },
     {
-      type: 'tree',
-      label: 'Hierarchical Tree',
-      description: 'Displays parent-child relationships in a tree structure',
+      type: 'hierarchical',
+      label: 'Hierarchical',
+      description: 'Tree structure with configurable direction and spacing',
       icon: <GitBranch className="w-6 h-6" />,
     },
     {
@@ -87,6 +105,24 @@ export function LayoutPanel() {
       description: 'Nodes arranged in a uniform grid pattern',
       icon: <Grid3x3 className="w-6 h-6" />,
     },
+    {
+      type: 'fruchterman',
+      label: 'Fruchterman-Reingold',
+      description: 'Force-directed with balanced edge lengths',
+      icon: <Network className="w-6 h-6" />,
+    },
+    {
+      type: 'kamada-kawai',
+      label: 'Kamada-Kawai',
+      description: 'Spring-based layout minimizing energy',
+      icon: <Network className="w-6 h-6" />,
+    },
+    {
+      type: 'spectral',
+      label: 'Spectral',
+      description: 'Eigenvalue-based mathematical layout',
+      icon: <Network className="w-6 h-6" />,
+    },
   ]
 
   if (!isOpen) return null
@@ -100,7 +136,13 @@ export function LayoutPanel() {
       type: selectedLayout,
       timelineSwimlaneAttribute: selectedLayout === 'timeline' ? swimlaneAttribute : undefined,
       timelineVerticalSpacing: selectedLayout === 'timeline' ? verticalSpacing : undefined,
+      timelineXSpacingMultiplier: selectedLayout === 'timeline' ? xSpacingMultiplier : undefined,
+      timelineYSpacingMultiplier: selectedLayout === 'timeline' ? ySpacingMultiplier : undefined,
       timelineSwimlaneSort: selectedLayout === 'timeline' ? swimlaneSort : undefined,
+      timelineSpacingMode: selectedLayout === 'timeline' ? spacingMode : undefined,
+      hierarchicalDirection: selectedLayout === 'hierarchical' ? hierarchicalDirection : undefined,
+      hierarchicalLevelSeparation: selectedLayout === 'hierarchical' ? levelSeparation : undefined,
+      hierarchicalNodeSeparation: selectedLayout === 'hierarchical' ? nodeSeparation : undefined,
     })
     toast.success(`Applied ${layouts.find((l) => l.type === selectedLayout)?.label} layout`)
   }
@@ -166,6 +208,24 @@ export function LayoutPanel() {
             <section className="p-4 bg-dark border border-dark rounded-lg space-y-4">
               <h3 className="text-lg font-semibold text-slate-100 mb-3">Timeline Options</h3>
 
+              {/* Spacing Mode */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  X-Axis Spacing Mode
+                </label>
+                <select
+                  value={spacingMode}
+                  onChange={(e) => setSpacingMode(e.target.value as TimelineSpacingMode)}
+                  className="w-full px-3 py-2 bg-dark-secondary border border-dark rounded text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyber-500"
+                >
+                  <option value="relative">Relative to Time (Family Tree)</option>
+                  <option value="equal">Equal Spacing (Sorted by Time)</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Relative: nodes positioned proportionally to their timestamp. Equal: nodes evenly spaced, sorted by time.
+                </p>
+              </div>
+
               {/* Swimlane Attribute */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -229,6 +289,109 @@ export function LayoutPanel() {
                   </p>
                 </div>
               )}
+
+              {/* X-Axis Spacing Multiplier */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  X-Axis Spacing Multiplier
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="5.0"
+                  step="0.1"
+                  value={xSpacingMultiplier}
+                  onChange={(e) => setXSpacingMultiplier(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-dark-secondary border border-dark rounded text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyber-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Horizontal time spacing (1.0 = default, increase to spread nodes apart)
+                </p>
+              </div>
+
+              {/* Y-Axis Spacing Multiplier */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Y-Axis Spacing Multiplier
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="5.0"
+                  step="0.1"
+                  value={ySpacingMultiplier}
+                  onChange={(e) => setYSpacingMultiplier(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-dark-secondary border border-dark rounded text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyber-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Vertical spacing within swimlanes (1.0 = default, increase to avoid overlaps)
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* Hierarchical-specific options */}
+          {selectedLayout === 'hierarchical' && (
+            <section className="p-4 bg-dark border border-dark rounded-lg space-y-4">
+              <h3 className="text-lg font-semibold text-slate-100 mb-3">Hierarchical Options</h3>
+
+              {/* Direction */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Layout Direction
+                </label>
+                <select
+                  value={hierarchicalDirection}
+                  onChange={(e) => setHierarchicalDirection(e.target.value as HierarchicalDirection)}
+                  className="w-full px-3 py-2 bg-dark-secondary border border-dark rounded text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyber-500"
+                >
+                  <option value="top-bottom">Top to Bottom</option>
+                  <option value="bottom-top">Bottom to Top</option>
+                  <option value="left-right">Left to Right</option>
+                  <option value="right-left">Right to Left</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Direction of the hierarchical flow
+                </p>
+              </div>
+
+              {/* Level Separation */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Level Separation: {levelSeparation}px
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="300"
+                  step="10"
+                  value={levelSeparation}
+                  onChange={(e) => setLevelSeparation(Number(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Spacing between hierarchical levels
+                </p>
+              </div>
+
+              {/* Node Separation */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Node Separation: {nodeSeparation}px
+                </label>
+                <input
+                  type="range"
+                  min="40"
+                  max="200"
+                  step="10"
+                  value={nodeSeparation}
+                  onChange={(e) => setNodeSeparation(Number(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Spacing between nodes on the same level
+                </p>
+              </div>
             </section>
           )}
 

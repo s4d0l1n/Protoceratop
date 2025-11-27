@@ -1,22 +1,65 @@
-import { X, ExternalLink, Tag, Database, Clock, FileText, Layers2, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, ExternalLink, Tag, Database, Clock, FileText, Layers2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useGraphStore } from '@/stores/graphStore'
+import { useRulesStore } from '@/stores/rulesStore'
+import { useTemplateStore } from '@/stores/templateStore'
+import { evaluateNodeRules } from '@/lib/styleEvaluator'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import type { FontTemplate } from '@/types'
 
 /**
- * Node detail panel - slide-out from right showing node information
+ * Convert a FontTemplate to CSS style object
+ */
+function fontTemplateToStyle(template: FontTemplate | undefined): React.CSSProperties {
+  if (!template) return {}
+
+  return {
+    fontFamily: template.fontFamily,
+    fontSize: `${template.fontSize}rem`,
+    fontWeight: template.fontWeight,
+    fontStyle: template.fontStyle,
+    color: template.color,
+    backgroundColor: template.backgroundColor || 'transparent',
+    textDecoration: template.textDecoration,
+    textTransform: template.textTransform,
+    textShadow: template.textShadow?.enabled
+      ? `${template.textShadow.offsetX}px ${template.textShadow.offsetY}px ${template.textShadow.blur}px ${template.textShadow.color}`
+      : 'none',
+    padding: template.backgroundColor ? '0.25rem 0.5rem' : undefined,
+    borderRadius: template.backgroundColor ? '0.25rem' : undefined,
+  }
+}
+
+/**
+ * Node detail panel - right sidebar showing node information
  * Shows individual node details or all combined nodes when a meta-node is selected
  */
 export function NodeDetailPanel() {
   const { selectedNodeId, selectedMetaNodeId, setSelectedNodeId, setSelectedMetaNodeId } = useUIStore()
   const { nodes, getNodeById, getConnectedEdges, getMetaNodeById, toggleMetaNodeCollapse } = useGraphStore()
+  const { rules } = useRulesStore()
+  const { getFontTemplateById } = useTemplateStore()
+
+  // IMPORTANT: All hooks must be called before any conditional returns
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  const [isMinimized, setIsMinimized] = useState(false)
 
   // Check if we're showing a meta-node or regular node
   const isMetaNode = !!selectedMetaNodeId
   const metaNode = selectedMetaNodeId ? getMetaNodeById(selectedMetaNodeId) : null
   const node = selectedNodeId ? getNodeById(selectedNodeId) : null
+
+  // Evaluate rules to get font template for the node
+  const appliedFontTemplate = useMemo<FontTemplate | undefined>(() => {
+    if (!node) return undefined
+    const evaluation = evaluateNodeRules(node, rules)
+    if (evaluation.fontTemplateId) {
+      return getFontTemplateById(evaluation.fontTemplateId)
+    }
+    return undefined
+  }, [node, rules, getFontTemplateById])
 
   if (!selectedNodeId && !selectedMetaNodeId) return null
   if (!node && !metaNode) return null
@@ -41,45 +84,62 @@ export function NodeDetailPanel() {
     .map((id) => nodes.find((n) => n.id === id))
     .filter((n): n is typeof nodes[0] => n !== undefined)
 
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
-
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-dark-secondary border-l border-dark shadow-2xl z-40 overflow-hidden flex flex-col animate-slide-in-right">
+    <aside className={cn(
+      "bg-dark-secondary border-l border-dark flex-shrink-0 transition-all duration-300 relative flex flex-col h-screen",
+      isMinimized ? "w-16" : "w-96"
+    )}>
+      {/* Collapse Toggle Button (matches left sidebar) */}
+      <button
+        onClick={() => setIsMinimized(!isMinimized)}
+        className="absolute -left-3 top-6 w-6 h-6 bg-dark-tertiary border border-dark rounded-full flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700 transition-colors z-10"
+        title={isMinimized ? 'Expand panel' : 'Collapse panel'}
+      >
+        {isMinimized ? (
+          <ChevronLeft className="w-4 h-4" />
+        ) : (
+          <ChevronRight className="w-4 h-4" />
+        )}
+      </button>
+
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-dark bg-dark-tertiary">
-        <div className="flex items-center gap-2">
-          {isMetaNode ? (
-            <>
-              <Layers2 className="w-5 h-5 text-cyber-500" />
-              <h2 className="text-lg font-bold text-slate-100">Combined Nodes</h2>
-              <span className="text-sm text-slate-400">({childNodes.length})</span>
-            </>
-          ) : (
-            <>
-              <div
-                className={cn(
-                  'w-3 h-3 rounded-full',
-                  node!.isStub ? 'bg-slate-500' : 'bg-cyber-500'
-                )}
-              />
-              <h2 className="text-lg font-bold text-slate-100">Node Details</h2>
-            </>
-          )}
+      {!isMinimized && (
+        <div className="flex items-center justify-between p-4 border-b border-dark bg-dark-tertiary flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {isMetaNode ? (
+              <>
+                <Layers2 className="w-5 h-5 text-cyber-500" />
+                <h2 className="text-lg font-bold text-slate-100">Combined Nodes</h2>
+                <span className="text-sm text-slate-400">({childNodes.length})</span>
+              </>
+            ) : (
+              <>
+                <div
+                  className={cn(
+                    'w-3 h-3 rounded-full',
+                    node!.isStub ? 'bg-slate-500' : 'bg-cyber-500'
+                  )}
+                />
+                <h2 className="text-lg font-bold text-slate-100">Node Details</h2>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setSelectedNodeId(null)
+              setSelectedMetaNodeId(null)
+            }}
+            className="p-1.5 rounded-lg hover:bg-dark-secondary text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setSelectedNodeId(null)
-            setSelectedMetaNodeId(null)
-          }}
-          className="p-1.5 rounded-lg hover:bg-dark-secondary text-slate-400 hover:text-slate-200 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+      )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {/* Meta-node info or regular node info */}
+      {!isMinimized && (
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Meta-node info or regular node info */}
         {isMetaNode && metaNode ? (
           <>
             {/* Meta-node header */}
@@ -205,9 +265,19 @@ export function NodeDetailPanel() {
                 </h3>
               </div>
               <div className="p-3 bg-dark/50 rounded-lg border border-dark">
-                <p className="text-sm font-mono text-slate-200 break-all">{node.id}</p>
+                <p
+                  className="text-sm font-mono break-all"
+                  style={appliedFontTemplate ? fontTemplateToStyle(appliedFontTemplate) : { color: 'rgb(226 232 240)' }}
+                >
+                  {node.id}
+                </p>
                 {node.label !== node.id && (
-                  <p className="text-xs text-slate-400 mt-1">Label: {node.label}</p>
+                  <p
+                    className="text-xs mt-1"
+                    style={appliedFontTemplate ? fontTemplateToStyle(appliedFontTemplate) : { color: 'rgb(148 163 184)' }}
+                  >
+                    Label: {node.label}
+                  </p>
                 )}
               </div>
             </div>
@@ -238,7 +308,8 @@ export function NodeDetailPanel() {
               {node.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-1 bg-cyber-500/20 border border-cyber-500/30 rounded text-xs text-cyber-400"
+                  className="px-2 py-1 bg-cyber-500/20 border border-cyber-500/30 rounded text-xs"
+                  style={appliedFontTemplate ? fontTemplateToStyle(appliedFontTemplate) : { color: 'rgb(103 232 249)' }}
                 >
                   {tag}
                 </span>
@@ -276,14 +347,20 @@ export function NodeDetailPanel() {
                         {value.map((v, i) => (
                           <span
                             key={i}
-                            className="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-300"
+                            className="px-2 py-0.5 bg-slate-700 rounded text-xs"
+                            style={appliedFontTemplate ? fontTemplateToStyle(appliedFontTemplate) : undefined}
                           >
                             {v}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-200 break-all font-mono">{String(value)}</p>
+                      <p
+                        className="text-sm break-all font-mono"
+                        style={appliedFontTemplate ? fontTemplateToStyle(appliedFontTemplate) : { color: 'rgb(226 232 240)' }}
+                      >
+                        {String(value)}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -382,9 +459,10 @@ export function NodeDetailPanel() {
             </div>
           )}
         </div>
-          </>
-        ) : null}
+        </>
+      ) : null}
       </div>
-    </div>
+      )}
+    </aside>
   )
 }
