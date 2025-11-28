@@ -39,7 +39,7 @@ function fontTemplateToStyle(template: FontTemplate | undefined): React.CSSPrope
 export function NodeDetailPanel() {
   const { selectedNodeId, selectedMetaNodeId, setSelectedNodeId, setSelectedMetaNodeId } = useUIStore()
   const { nodes, getNodeById, getConnectedEdges, getMetaNodeById, toggleMetaNodeCollapse } = useGraphStore()
-  const { rules } = useRulesStore()
+  const { styleRules } = useRulesStore()
   const { getFontTemplateById } = useTemplateStore()
 
   // IMPORTANT: All hooks must be called before any conditional returns
@@ -54,12 +54,12 @@ export function NodeDetailPanel() {
   // Evaluate rules to get font template for the node
   const appliedFontTemplate = useMemo<FontTemplate | undefined>(() => {
     if (!node) return undefined
-    const evaluation = evaluateNodeRules(node, rules)
+    const evaluation = evaluateNodeRules(node, styleRules)
     if (evaluation.fontTemplateId) {
       return getFontTemplateById(evaluation.fontTemplateId)
     }
     return undefined
-  }, [node, rules, getFontTemplateById])
+  }, [node, styleRules, getFontTemplateById])
 
   if (!selectedNodeId && !selectedMetaNodeId) return null
   if (!node && !metaNode) return null

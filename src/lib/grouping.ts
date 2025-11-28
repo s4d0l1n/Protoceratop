@@ -316,8 +316,6 @@ export function transformEdgesForGrouping(
   edges: GraphEdge[],
   metaNodes: MetaNode[]
 ): TransformedEdge[] {
-  const transformedEdges: TransformedEdge[] = []
-
   // Create a map to deduplicate edges between same source/target
   const edgeMap = new Map<string, TransformedEdge>()
 

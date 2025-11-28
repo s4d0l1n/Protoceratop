@@ -10,7 +10,6 @@ import { calculateCircleLayout } from '@/lib/layouts/circleLayout'
 import { calculateGridLayout } from '@/lib/layouts/gridLayout'
 import { calculateConcentricLayout } from '@/lib/layouts/concentricLayout'
 import { calculateForceLayout } from '@/lib/layouts/forceLayout'
-import { calculateTreeLayout } from '@/lib/layouts/treeLayout'
 import { calculateRadialLayout } from '@/lib/layouts/radialLayout'
 import { calculateHierarchicalLayout } from '@/lib/layouts/hierarchicalLayout'
 import { calculateFruchtermanLayout } from '@/lib/layouts/fruchtermanLayout'
@@ -395,21 +394,6 @@ export function G6Graph() {
           repulsionStrength: 8000,
           attractionStrength: 0.015,
           centerGravity: 0.05,
-        })
-        result.positions.forEach((pos, nodeId) => {
-          positions.set(nodeId, { ...pos, vx: 0, vy: 0 })
-        })
-        setSwimlanes(new Map())
-        break
-      }
-
-      case 'tree': {
-        const result = calculateTreeLayout(nodes, edges, {
-          width,
-          height,
-          direction: 'vertical',
-          levelSpacing: 150,
-          nodeSpacing: 120,
         })
         result.positions.forEach((pos, nodeId) => {
           positions.set(nodeId, { ...pos, vx: 0, vy: 0 })

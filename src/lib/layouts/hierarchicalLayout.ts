@@ -121,8 +121,8 @@ function buildTree(nodes: GraphNode[], edges: GraphEdge[]): TreeNode[] {
 function calculateTreePositions(
   trees: TreeNode[],
   direction: HierarchicalDirection,
-  levelSeparation: number,
-  nodeSeparation: number,
+  _levelSeparation: number,
+  _nodeSeparation: number,
   width: number,
   height: number
 ): Map<string, { x: number; y: number }> {
@@ -148,7 +148,7 @@ function calculateTreePositions(
   trees.forEach(collectByLevel)
 
   // Calculate position for each node
-  levelNodes.forEach((nodesAtLevel, level) => {
+  levelNodes.forEach((nodesAtLevel) => {
     nodesAtLevel.forEach((node, index) => {
       node.position = index
     })
