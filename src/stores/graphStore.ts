@@ -8,11 +8,20 @@ import type { GraphNode, GraphEdge, MetaNode } from '@/types'
  * Persists to localStorage to survive page refreshes
  */
 
+interface PhysicsModifiers {
+  centerGravity: number // -100 to +100
+  springStrength: number // -100 to +100
+  edgeLength: number // -100 to +100
+}
+
 interface GraphState {
   // Graph data
   nodes: GraphNode[]
   edges: GraphEdge[]
   metaNodes: MetaNode[]
+
+  // Physics modifiers
+  physicsModifiers: PhysicsModifiers
 
   // Actions
   setNodes: (nodes: GraphNode[]) => void
@@ -34,6 +43,9 @@ interface GraphState {
   setMetaNodes: (metaNodes: MetaNode[]) => void
   toggleMetaNodeCollapse: (metaNodeId: string) => void
   getMetaNodeById: (metaNodeId: string) => MetaNode | undefined
+
+  // Physics actions
+  setPhysicsModifiers: (modifiers: PhysicsModifiers) => void
 }
 
 export const useGraphStore = create<GraphState>()(
@@ -43,6 +55,11 @@ export const useGraphStore = create<GraphState>()(
   nodes: [],
   edges: [],
   metaNodes: [],
+  physicsModifiers: {
+    centerGravity: 0,
+    springStrength: 0,
+    edgeLength: 0
+  },
 
   // Actions
   setNodes: (nodes) =>
@@ -147,6 +164,10 @@ export const useGraphStore = create<GraphState>()(
 
   getMetaNodeById: (metaNodeId) =>
     get().metaNodes.find((mn) => mn.id === metaNodeId),
+
+  // Physics actions
+  setPhysicsModifiers: (modifiers) =>
+    set({ physicsModifiers: modifiers }),
     }),
     {
       name: 'raptorgraph-graph-storage',
