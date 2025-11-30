@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Settings, RotateCcw, ChevronDown, ChevronUp, Map as MapIcon, Shapes } from 'lucide-react'
 import { useGraphStore } from '@/stores/graphStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useTemplateStore } from '@/stores/templateStore'
 import { useGraphExport } from '@/hooks/useGraphExport'
+import { toast } from '@/components/ui/Toast'
 import { calculateTimelineLayout } from '@/lib/layouts/timelineLayout'
 import { calculateCircleLayout } from '@/lib/layouts/circleLayout'
 import { calculateGridLayout } from '@/lib/layouts/gridLayout'
@@ -20,6 +21,8 @@ import { calculateClusterIslandLayout } from '@/lib/layouts/clusterIslandLayout'
 import { getVisibleNodesWithGrouping, calculateMetaNodePosition, transformEdgesForGrouping } from '@/lib/grouping'
 import { evaluateNodeRules, evaluateEdgeRules } from '@/lib/styleEvaluator'
 import { useRulesStore } from '@/stores/rulesStore'
+import { computeConvexHull, expandHull } from '@/lib/convexHull'
+import { Minimap } from './Minimap'
 
 interface NodePosition {
   x: number
@@ -62,6 +65,78 @@ export function G6Graph() {
   const [manuallyPositionedMetaNodes, setManuallyPositionedMetaNodes] = useState<Set<string>>(new Set())
   const [animationTime, setAnimationTime] = useState(0)
 
+  // Default physics parameters
+  const defaultPhysicsParams = {
+    repulsionStrength: 8000,          // How strongly nodes push apart
+    attractionStrength: 0.2,          // How strongly edges pull together
+    leafSpringStrength: 0.8,          // How tightly leaves stick to parents
+    damping: 0.85,                    // Energy loss per frame (0-1)
+    centerGravity: 0.001,             // Weak pull toward canvas center
+  }
+
+  // Physics parameters - adjustable by user
+  const [physicsParams, setPhysicsParams] = useState(defaultPhysicsParams)
+  const [showPhysicsControls, setShowPhysicsControls] = useState(false)
+
+  // Visualization features
+  const [showMinimap, setShowMinimap] = useState(false)
+  const [showHulls, setShowHulls] = useState(false)
+  const [clusterHulls, setClusterHulls] = useState<Map<number, { x: number; y: number }[]>>(new Map())
+
+  // Function to calculate hulls from current node positions
+  const calculateHullsFromPositions = useCallback((
+    currentPositions: Map<string, NodePosition>
+  ) => {
+    const hulls = new Map<number, { x: number; y: number }[]>()
+
+    // Build adjacency map
+    const adjacency = new Map<string, Set<string>>()
+    nodes.forEach(node => adjacency.set(node.id, new Set()))
+    edges.forEach(edge => {
+      adjacency.get(edge.source)?.add(edge.target)
+      adjacency.get(edge.target)?.add(edge.source)
+    })
+
+    // Find parent nodes with leaf children
+    const processedNodes = new Set<string>()
+    let hullId = 0
+
+    nodes.forEach(parentNode => {
+      if (processedNodes.has(parentNode.id)) return
+
+      const neighbors = adjacency.get(parentNode.id) || new Set()
+
+      // Find leaf children (degree 1 neighbors)
+      const leafChildren: string[] = []
+      neighbors.forEach(neighborId => {
+        const neighborDegree = adjacency.get(neighborId)?.size || 0
+        if (neighborDegree === 1) {
+          leafChildren.push(neighborId)
+        }
+      })
+
+      // Create hull around parent + leaves
+      if (leafChildren.length > 0) {
+        const groupNodeIds = [parentNode.id, ...leafChildren]
+        const groupPoints = groupNodeIds.map(nodeId => {
+          const pos = currentPositions.get(nodeId)
+          return pos ? { x: pos.x, y: pos.y } : null
+        }).filter((p): p is { x: number; y: number } => p !== null)
+
+        if (groupPoints.length >= 3) {
+          const hull = computeConvexHull(groupPoints)
+          const expandedHull = expandHull(hull, 60)
+          hulls.set(hullId++, expandedHull)
+        }
+
+        processedNodes.add(parentNode.id)
+        leafChildren.forEach(leafId => processedNodes.add(leafId))
+      }
+    })
+
+    return hulls
+  }, [nodes, edges])
+
   // Memoize visible nodes considering both filtering and grouping
   const visibleNodes = useMemo(() => {
     // First apply filter
@@ -76,6 +151,17 @@ export function G6Graph() {
 
     return filtered
   }, [nodes, filteredNodeIds, metaNodes])
+
+  // Memoize visible edges (for minimap)
+  const visibleEdges = useMemo(() => {
+    if (!filteredNodeIds || filteredNodeIds.size === 0) {
+      return edges
+    }
+    // Only show edges where both source and target are visible
+    return edges.filter(edge =>
+      filteredNodeIds.has(edge.source) && filteredNodeIds.has(edge.target)
+    )
+  }, [edges, filteredNodeIds])
 
   // Memoize visible meta-nodes (only show meta-nodes that have at least one filtered child)
   const visibleMetaNodes = useMemo(() => {
@@ -114,10 +200,146 @@ export function G6Graph() {
     return nodes.filter((n) => n.isStub).length
   }, [nodes])
 
-  // Memoize export handler
-  const handleExport = useCallback(() => {
-    exportAsPNG(canvasRef.current, 'raptorgraph-export', 2)
-  }, [exportAsPNG])
+  // Memoize export handler - exports full graph including off-screen nodes
+  const handleExport = useCallback(async () => {
+    if (nodes.length === 0 || nodePositions.size === 0) return
+
+    // Calculate bounds of all nodes
+    let minX = Infinity, maxX = -Infinity
+    let minY = Infinity, maxY = -Infinity
+
+    nodePositions.forEach((pos) => {
+      minX = Math.min(minX, pos.x)
+      maxX = Math.max(maxX, pos.x)
+      minY = Math.min(minY, pos.y)
+      maxY = Math.max(maxY, pos.y)
+    })
+
+    // Add padding
+    const padding = 200
+    const nodeRadius = 60
+    minX -= padding
+    maxX += padding + nodeRadius * 2
+    minY -= padding
+    maxY += padding + nodeRadius * 2
+
+    const graphWidth = maxX - minX
+    const graphHeight = maxY - minY
+
+    // Create export canvas
+    const exportCanvas = document.createElement('canvas')
+    const ctx = exportCanvas.getContext('2d')
+    if (!ctx) return
+
+    // Set export canvas size (2x for high resolution)
+    const scale = 2
+    exportCanvas.width = graphWidth * scale
+    exportCanvas.height = graphHeight * scale
+
+    // Apply scaling and translation
+    ctx.scale(scale, scale)
+    ctx.translate(-minX, -minY)
+
+    // Dark background
+    ctx.fillStyle = '#0f172a'
+    ctx.fillRect(minX, minY, graphWidth, graphHeight)
+
+    // Draw all edges
+    ctx.strokeStyle = '#475569'
+    ctx.lineWidth = 2
+    edges.forEach(edge => {
+      const sourcePos = nodePositions.get(edge.source)
+      const targetPos = nodePositions.get(edge.target)
+      if (sourcePos && targetPos) {
+        ctx.beginPath()
+        ctx.moveTo(sourcePos.x, sourcePos.y)
+        ctx.lineTo(targetPos.x, targetPos.y)
+        ctx.stroke()
+      }
+    })
+
+    // Draw all nodes
+    nodes.forEach(node => {
+      const pos = nodePositions.get(node.id)
+      if (!pos) return
+
+      // Node circle
+      ctx.fillStyle = '#06b6d4'
+      ctx.beginPath()
+      ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Node label
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '14px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(node.label || node.id, pos.x, pos.y)
+    })
+
+    // Export to PNG
+    const blob = await new Promise<Blob | null>((resolve) => {
+      exportCanvas.toBlob(resolve, 'image/png', 1.0)
+    })
+
+    if (!blob) return
+
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'raptorgraph-export.png'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    toast.success(`Exported full graph (${exportCanvas.width}x${exportCanvas.height}px)`)
+  }, [nodes, edges, nodePositions])
+
+  // Handler to rerun physics layout - reset everything like a refresh
+  const handleRerunLayout = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas || nodes.length === 0) return
+
+    const width = canvas.offsetWidth
+    const height = canvas.offsetHeight
+
+    // Recalculate layout from scratch with current physics parameters
+    const layoutResult = calculateClusterIslandLayout(nodes, edges, {
+      width,
+      height,
+      iterations: 300,
+      intraClusterAttraction: 0.05,
+      intraClusterRepulsion: 3000,
+      leafRadialForce: 0.3,
+      interClusterRepulsion: 150000,
+      minClusterDistance: 600,
+      centerGravity: 0.001,
+    })
+
+    // Reset positions to new layout
+    setNodePositions((prev) => {
+      const newPositions = new Map<string, NodePosition>()
+      layoutResult.positions.forEach((pos, nodeId) => {
+        newPositions.set(nodeId, {
+          x: pos.x,
+          y: pos.y,
+          vx: 0,
+          vy: 0,
+        })
+      })
+      return newPositions
+    })
+
+    // Reset iteration counter and max iterations to restart physics simulation
+    setIterationCount(0)
+    setMaxIterations(500)
+  }, [nodes, edges])
+
+  const handleContinuePhysics = useCallback(() => {
+    // Add 100 more iterations to continue physics from current state
+    setMaxIterations(prev => prev + 100)
+  }, [])
 
   // Mouse event handlers for dragging and panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -343,12 +565,37 @@ export function G6Graph() {
     setDraggedNodeId(null)
   }, [draggedNodeId, nodePositions, dragOffset, metaNodePositions, metaNodes, setSelectedNodeId, setSelectedMetaNodeId, isPanning, panOffset, zoom])
 
-  // Handle mouse wheel for zooming
+  // Handle mouse wheel for zooming - zoom towards cursor
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault()
-    const delta = -e.deltaY / 1000
-    setZoom((prev) => Math.max(0.1, Math.min(5, prev + delta)))
-  }, [])
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // More granular zoom: smaller steps for smoother zooming
+    const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05 // 5% per scroll
+
+    setZoom((prevZoom) => {
+      const newZoom = Math.max(0.1, Math.min(5, prevZoom * zoomFactor))
+
+      // Calculate mouse position in canvas coordinates
+      const rect = canvas.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+
+      // Calculate the point in graph space that the mouse is over (before zoom)
+      const graphX = (mouseX - panOffset.x) / prevZoom
+      const graphY = (mouseY - panOffset.y) / prevZoom
+
+      // Calculate new pan offset to keep that point under the mouse (after zoom)
+      const newPanX = mouseX - graphX * newZoom
+      const newPanY = mouseY - graphY * newZoom
+
+      setPanOffset({ x: newPanX, y: newPanY })
+
+      return newZoom
+    })
+  }, [panOffset])
 
   // Initialize node positions with memoized layout calculation
   useEffect(() => {
@@ -397,12 +644,12 @@ export function G6Graph() {
           width,
           height,
           iterations: 300,
-          intraClusterAttraction: 0.05,
+          intraClusterAttraction: physicsParams.intraClusterAttraction,
           intraClusterRepulsion: 3000,
-          leafRadialForce: 0.3,
-          interClusterRepulsion: 50000,
-          minClusterDistance: 400,
-          centerGravity: 0.01,
+          leafRadialForce: physicsParams.leafRadialForce,
+          interClusterRepulsion: physicsParams.interClusterRepulsion,
+          minClusterDistance: physicsParams.minClusterDistance,
+          centerGravity: 0.001,
         })
 
         layoutResult.positions.forEach((pos, nodeId) => {
@@ -413,13 +660,64 @@ export function G6Graph() {
             vy: 0,
           })
         })
+
+        // Calculate convex hulls for each parent-leaf group
+        const hulls = new Map<number, { x: number; y: number }[]>()
+
+        // Build adjacency map to identify parent-child relationships
+        const adjacency = new Map<string, Set<string>>()
+        nodes.forEach(node => adjacency.set(node.id, new Set()))
+        edges.forEach(edge => {
+          adjacency.get(edge.source)?.add(edge.target)
+          adjacency.get(edge.target)?.add(edge.source)
+        })
+
+        // Find parent nodes (nodes with leaf children)
+        const processedNodes = new Set<string>()
+        let hullId = 0
+
+        nodes.forEach(parentNode => {
+          if (processedNodes.has(parentNode.id)) return
+
+          const neighbors = adjacency.get(parentNode.id) || new Set()
+
+          // Check if this node has any leaf children (degree 1 neighbors)
+          const leafChildren: string[] = []
+          neighbors.forEach(neighborId => {
+            const neighborDegree = adjacency.get(neighborId)?.size || 0
+            if (neighborDegree === 1) {
+              leafChildren.push(neighborId)
+            }
+          })
+
+          // If this node has leaf children, create a hull around parent + leaves
+          if (leafChildren.length > 0) {
+            const groupNodeIds = [parentNode.id, ...leafChildren]
+            const groupPoints = groupNodeIds.map(nodeId => {
+              const pos = layoutResult.positions.get(nodeId)
+              return pos ? { x: pos.x, y: pos.y } : null
+            }).filter((p): p is { x: number; y: number } => p !== null)
+
+            if (groupPoints.length >= 3) {
+              const hull = computeConvexHull(groupPoints)
+              const expandedHull = expandHull(hull, 60) // Add 60px padding
+              hulls.set(hullId++, expandedHull)
+            }
+
+            // Mark all nodes in this group as processed
+            processedNodes.add(parentNode.id)
+            leafChildren.forEach(leafId => processedNodes.add(leafId))
+          }
+        })
+
+        setClusterHulls(hulls)
       }
 
       return newPositions
     })
 
     setSwimlanes(new Map())
-  }, [nodes, edges, layoutConfig])
+  }, [nodes, edges, layoutConfig, physicsParams])
 
   // Calculate meta-node positions after node positions are set
   useEffect(() => {
@@ -494,7 +792,7 @@ export function G6Graph() {
 
   // Track simulation state - FOUR PHASES
   const [iterationCount, setIterationCount] = useState(0)
-  const maxIterations = 500
+  const [maxIterations, setMaxIterations] = useState(500)
   const phase1Iterations = 250  // Explosion phase - push clusters apart
   const phase2Iterations = 100  // Leaf retraction - pull leaves closer
   const phase3Iterations = 100  // Non-overlap enforcement phase
@@ -716,28 +1014,29 @@ export function G6Graph() {
             let springStrength: number
 
             if (isLeafConnection) {
-              // PHASE-DEPENDENT leaf spring parameters
+              // PHASE-DEPENDENT leaf spring parameters (scaled by user parameter)
+              const leafMultiplier = physicsParams.leafSpringStrength
               if (currentPhase === 1) {
                 // Phase 1: Medium springs, let leaves spread with parents during explosion
                 idealLength = 60   // Closer than normal connections (vs 120px)
-                springStrength = 0.5  // Moderate strength to resist drifting too far
+                springStrength = 0.5 * leafMultiplier
               } else if (currentPhase === 2) {
                 // Phase 2: Strong retraction, pull leaves significantly closer
                 idealLength = 40   // Pull closer to parent
-                springStrength = 2.0  // Much stronger to start retracting
+                springStrength = 2.0 * leafMultiplier
               } else if (currentPhase === 3) {
                 // Phase 3: Continue pulling leaves closer while maintaining spacing
                 idealLength = 20   // Very close - collision will prevent overlap
-                springStrength = 8.0  // Very strong pull
+                springStrength = 8.0 * leafMultiplier
               } else {
                 // Phase 4: EXTREMELY strong final snap - as close as collision allows
                 idealLength = 5   // Extremely small - leaves try to get as close as possible
-                springStrength = 20.0  // MASSIVELY strong to push leaves against collision boundary
+                springStrength = 20.0 * leafMultiplier
               }
             } else {
-              // Normal connections: standard spring parameters
+              // Normal connections: standard spring parameters (scaled by user parameter)
               idealLength = 120  // Structural connections only
-              springStrength = 0.2
+              springStrength = 0.2 * physicsParams.attractionStrength
             }
 
             const dx = neighborPos.x - pos.x
@@ -807,7 +1106,7 @@ export function G6Graph() {
               // Add LARGE variation based on node IDs for organic, non-uniform spacing
               const nodeHash = (node.id.charCodeAt(0) + otherNode.id.charCodeAt(0)) % 100
               const repulsionVariation = 0.5 + (nodeHash / 100) * 1.0  // 0.5 to 1.5 range (50%-150%)
-              let repulsionStrength = 8000 * repulsionVariation  // Varies between 4000-12000
+              let repulsionStrength = physicsParams.repulsionStrength * repulsionVariation  // Use user-controlled value
 
               // Leaves get almost no repulsion charge (don't push parent away)
               if (isLeaf) {
@@ -820,6 +1119,7 @@ export function G6Graph() {
               // FORCE 2b: Leaf-Parent Magnetic Repulsion
               // Nodes with many leaves repel other nodes with leaves
               // Like two north-end magnets pushing each other apart
+              // ENHANCED: Stronger to prevent hull group overlaps
               if (!isLeaf && !otherIsLeaf) {
                 // Count leaf children for both nodes
                 let myLeafCount = 0
@@ -834,11 +1134,20 @@ export function G6Graph() {
                   if (neighborDegree === 1) otherLeafCount++
                 })
 
-                // If both nodes have leaves, add extra repulsion proportional to leaf counts
+                // If both nodes have leaves, add VERY STRONG extra repulsion proportional to leaf counts
+                // This ensures hull groups maintain clear separation
                 if (myLeafCount > 0 && otherLeafCount > 0) {
                   // Magnetic repulsion: more leaves = stronger push
-                  const leafRepulsionMultiplier = Math.sqrt(myLeafCount * otherLeafCount) * 0.3
+                  // Increased multiplier from 0.3 to 1.0 for much stronger separation
+                  const leafRepulsionMultiplier = Math.sqrt(myLeafCount * otherLeafCount) * 1.0
                   repulsionStrength *= (1 + leafRepulsionMultiplier)
+
+                  // Add distance-based boost: push harder when groups are close
+                  const criticalDistance = 300 // Distance threshold
+                  if (distance < criticalDistance) {
+                    const proximityBoost = (criticalDistance - distance) / criticalDistance
+                    repulsionStrength *= (1 + proximityBoost * 2.0) // Up to 3x stronger when very close
+                  }
                 }
               }
 
@@ -903,7 +1212,7 @@ export function G6Graph() {
           if (forceLength > 0) {
             // Apply temperature-based limiting
             const limitedLength = Math.min(forceLength, temperature)
-            const damping = 0.6
+            const damping = physicsParams.damping  // Use user-controlled damping
 
             const vx = (force.x / forceLength) * limitedLength * damping
             const vy = (force.y / forceLength) * limitedLength * damping
@@ -1074,6 +1383,58 @@ export function G6Graph() {
           ctx.moveTo(0, yPos - swimlaneHeight / 2)
           ctx.lineTo(canvas.width, yPos - swimlaneHeight / 2)
           ctx.stroke()
+        })
+      }
+
+      // ===================================================================
+      // CLUSTER HULL RENDERING
+      // Draw convex hulls around clusters (if enabled)
+      // ===================================================================
+
+      // Calculate hulls dynamically from current node positions
+      const currentHulls = showHulls ? calculateHullsFromPositions(nodePositions) : new Map()
+
+      if (showHulls && currentHulls.size > 0) {
+        // Generate colors for each cluster
+        const clusterColors = [
+          'rgba(6, 182, 212, 0.1)',   // cyan
+          'rgba(168, 85, 247, 0.1)',  // purple
+          'rgba(236, 72, 153, 0.1)',  // pink
+          'rgba(34, 197, 94, 0.1)',   // green
+          'rgba(251, 146, 60, 0.1)',  // orange
+          'rgba(59, 130, 246, 0.1)',  // blue
+        ]
+
+        const clusterBorderColors = [
+          'rgba(6, 182, 212, 0.4)',   // cyan
+          'rgba(168, 85, 247, 0.4)',  // purple
+          'rgba(236, 72, 153, 0.4)',  // pink
+          'rgba(34, 197, 94, 0.4)',   // green
+          'rgba(251, 146, 60, 0.4)',  // orange
+          'rgba(59, 130, 246, 0.4)',  // blue
+        ]
+
+        currentHulls.forEach((hullPoints, clusterId) => {
+          if (hullPoints.length < 3) return
+
+          const colorIndex = clusterId % clusterColors.length
+
+          // Draw filled hull
+          ctx.fillStyle = clusterColors[colorIndex]
+          ctx.strokeStyle = clusterBorderColors[colorIndex]
+          ctx.lineWidth = 2
+          ctx.setLineDash([5, 5])
+
+          ctx.beginPath()
+          ctx.moveTo(hullPoints[0].x, hullPoints[0].y)
+          for (let i = 1; i < hullPoints.length; i++) {
+            ctx.lineTo(hullPoints[i].x, hullPoints[i].y)
+          }
+          ctx.closePath()
+          ctx.fill()
+          ctx.stroke()
+
+          ctx.setLineDash([])
         })
       }
 
@@ -2006,19 +2367,212 @@ export function G6Graph() {
       {nodes.length > 0 && (
         <button
           onClick={handleExport}
-          className="absolute top-4 right-4 px-3 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-colors flex items-center gap-2"
+          className="group absolute top-4 right-4 px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-all flex items-center gap-2 overflow-hidden hover:px-3"
           title="Export graph as PNG (2x resolution)"
         >
-          <Download className="w-4 h-4" />
-          <span>Export PNG</span>
+          <Download className="w-4 h-4 flex-shrink-0" />
+          <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Export PNG</span>
         </button>
+      )}
+
+      {/* Minimap Toggle */}
+      {nodes.length > 0 && (
+        <button
+          onClick={() => setShowMinimap(!showMinimap)}
+          className={`group absolute top-16 right-4 px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm transition-all flex items-center gap-2 overflow-hidden hover:px-3 ${
+            showMinimap ? 'text-cyber-400 border-cyber-500/50' : 'text-slate-300'
+          }`}
+          title="Toggle Minimap"
+        >
+          <MapIcon className="w-4 h-4 flex-shrink-0" />
+          <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Minimap</span>
+        </button>
+      )}
+
+      {/* Hull Outlines Toggle */}
+      {nodes.length > 0 && (
+        <button
+          onClick={() => setShowHulls(!showHulls)}
+          className={`group absolute top-28 right-4 px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm transition-all flex items-center gap-2 overflow-hidden hover:px-3 ${
+            showHulls ? 'text-cyber-400 border-cyber-500/50' : 'text-slate-300'
+          }`}
+          title="Toggle Cluster Hulls"
+        >
+          <Shapes className="w-4 h-4 flex-shrink-0" />
+          <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Hulls</span>
+        </button>
+      )}
+
+      {/* Physics Controls */}
+      {nodes.length > 0 && (
+        <div className="absolute top-40 right-4 bg-dark-secondary/90 border border-dark rounded-lg overflow-hidden">
+          {/* Toggle button */}
+          <button
+            onClick={() => setShowPhysicsControls(!showPhysicsControls)}
+            className="group w-full px-2 py-2 text-sm text-slate-300 hover:text-cyber-400 hover:bg-dark transition-all flex items-center justify-between gap-2 overflow-hidden hover:px-3"
+            title="Physics Parameters"
+          >
+            <div className="flex items-center gap-2 overflow-hidden">
+              <Settings className="w-4 h-4 flex-shrink-0" />
+              <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Physics</span>
+              {iterationCount < maxIterations && (
+                <span className="flex-shrink-0 w-2 h-2 bg-green-400 rounded-full animate-pulse" title={`Calculating physics: ${iterationCount}/${maxIterations}`}></span>
+              )}
+            </div>
+            {showPhysicsControls && <ChevronUp className="w-4 h-4 flex-shrink-0" />}
+          </button>
+
+          {/* Controls panel */}
+          {showPhysicsControls && (
+            <div className="border-t border-dark p-3 space-y-3">
+              {/* Repulsion Strength */}
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">
+                  Repulsion Force: {(physicsParams.repulsionStrength / 1000).toFixed(1)}k
+                </label>
+                <input
+                  type="range"
+                  min="1000"
+                  max="30000"
+                  step="500"
+                  value={physicsParams.repulsionStrength}
+                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, repulsionStrength: Number(e.target.value) }))}
+                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
+                />
+              </div>
+
+              {/* Attraction Strength */}
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">
+                  Spring Strength: {physicsParams.attractionStrength.toFixed(2)}
+                </label>
+                <input
+                  type="range"
+                  min="0.01"
+                  max="2.0"
+                  step="0.05"
+                  value={physicsParams.attractionStrength}
+                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, attractionStrength: Number(e.target.value) }))}
+                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
+                />
+              </div>
+
+              {/* Leaf Spring Strength */}
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">
+                  Leaf Tightness: {physicsParams.leafSpringStrength.toFixed(2)}
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="5.0"
+                  step="0.1"
+                  value={physicsParams.leafSpringStrength}
+                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, leafSpringStrength: Number(e.target.value) }))}
+                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
+                />
+              </div>
+
+              {/* Damping */}
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">
+                  Damping: {(physicsParams.damping * 100).toFixed(0)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="0.99"
+                  step="0.01"
+                  value={physicsParams.damping}
+                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, damping: Number(e.target.value) }))}
+                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-2 mb-2">
+                {/* Reset button */}
+                <button
+                  onClick={() => setPhysicsParams(defaultPhysicsParams)}
+                  className="flex-1 px-3 py-2 bg-slate-500/20 hover:bg-slate-500/30 border border-slate-500/50 rounded-lg text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center justify-center gap-2"
+                  title="Reset to default values"
+                >
+                  <span>Reset</span>
+                </button>
+
+                {/* Rerun button */}
+                <button
+                  onClick={handleRerunLayout}
+                  className="flex-1 px-3 py-2 bg-cyber-500/20 hover:bg-cyber-500/30 border border-cyber-500/50 rounded-lg text-sm text-cyber-400 hover:text-cyber-300 transition-colors flex items-center justify-center gap-2"
+                  title="Rerun physics simulation with current parameters"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Rerun</span>
+                </button>
+              </div>
+
+              {/* Continue Physics button */}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleContinuePhysics}
+                  className="flex-1 px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 rounded-lg text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center justify-center gap-2"
+                  title="Continue physics from current positions"
+                >
+                  <span>Continue Physics</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Graph Controls */}
       <GraphControls
         zoom={zoom}
-        onZoomIn={() => setZoom((prev) => Math.min(5, prev + 0.2))}
-        onZoomOut={() => setZoom((prev) => Math.max(0.1, prev - 0.2))}
+        onZoomIn={() => {
+          const canvas = canvasRef.current
+          if (!canvas) return
+
+          const zoomFactor = 1.1 // 10% zoom increment
+          const newZoom = Math.min(5, zoom * zoomFactor)
+
+          // Zoom towards center of screen
+          const centerX = canvas.offsetWidth / 2
+          const centerY = canvas.offsetHeight / 2
+
+          // Calculate the point in graph space at the center
+          const graphX = (centerX - panOffset.x) / zoom
+          const graphY = (centerY - panOffset.y) / zoom
+
+          // Calculate new pan offset to keep that point at center
+          const newPanX = centerX - graphX * newZoom
+          const newPanY = centerY - graphY * newZoom
+
+          setPanOffset({ x: newPanX, y: newPanY })
+          setZoom(newZoom)
+        }}
+        onZoomOut={() => {
+          const canvas = canvasRef.current
+          if (!canvas) return
+
+          const zoomFactor = 0.9 // 10% zoom decrement
+          const newZoom = Math.max(0.1, zoom * zoomFactor)
+
+          // Zoom towards center of screen
+          const centerX = canvas.offsetWidth / 2
+          const centerY = canvas.offsetHeight / 2
+
+          // Calculate the point in graph space at the center
+          const graphX = (centerX - panOffset.x) / zoom
+          const graphY = (centerY - panOffset.y) / zoom
+
+          // Calculate new pan offset to keep that point at center
+          const newPanX = centerX - graphX * newZoom
+          const newPanY = centerY - graphY * newZoom
+
+          setPanOffset({ x: newPanX, y: newPanY })
+          setZoom(newZoom)
+        }}
         onReset={() => {
           setZoom(1)
           setPanOffset({ x: 0, y: 0 })
@@ -2032,6 +2586,28 @@ export function G6Graph() {
             <span className="text-xs text-slate-400">Zoom:</span>
             <span className="font-medium">{(zoom * 100).toFixed(0)}%</span>
           </div>
+        </div>
+      )}
+
+      {/* Minimap */}
+      {showMinimap && nodes.length > 0 && canvasRef.current && (
+        <div className="absolute bottom-6 left-6 mb-16">
+          <Minimap
+            nodes={visibleNodes}
+            edges={visibleEdges}
+            nodePositions={nodePositions}
+            viewportX={-panOffset.x / zoom}
+            viewportY={-panOffset.y / zoom}
+            viewportWidth={canvasRef.current.offsetWidth / zoom}
+            viewportHeight={canvasRef.current.offsetHeight / zoom}
+            canvasWidth={canvasRef.current.offsetWidth}
+            canvasHeight={canvasRef.current.offsetHeight}
+            zoom={zoom}
+            panOffset={panOffset}
+            onViewportChange={(x, y) => {
+              setPanOffset({ x: -x * zoom, y: -y * zoom })
+            }}
+          />
         </div>
       )}
     </div>
