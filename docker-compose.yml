@@ -1,0 +1,11 @@
+services:
+  raptorgraph:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: raptorgraph
+    ports:
+      - "4276:4276"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production

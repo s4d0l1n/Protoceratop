@@ -39,8 +39,6 @@ function App() {
     toggleDarkMode,
     toggleSidebar,
     setActivePanel,
-    currentLayout,
-    setCurrentLayout,
   } = useUIStore()
 
   const { nodes, edges } = useGraphStore()
@@ -175,29 +173,7 @@ function App() {
       <FontTemplatePanel />
       <SearchFilterPanel />
       <RulesPanel />
-      <LayoutPanel
-        currentLayout={currentLayout as any}
-        onLayoutChange={(layout) => setCurrentLayout(layout)}
-        onAutoLayout={() => {
-          // Auto-select best layout based on graph structure
-          const nodeCount = nodes.length
-          const edgeCount = edges.length
-          const avgDegree = edgeCount > 0 ? (edgeCount * 2) / nodeCount : 0
-
-          let selectedLayout: string
-          if (nodeCount < 10) {
-            selectedLayout = 'circle'
-          } else if (avgDegree < 1.5) {
-            selectedLayout = 'hierarchical'
-          } else if (avgDegree > 3) {
-            selectedLayout = 'force'
-          } else {
-            selectedLayout = nodeCount > 50 ? 'grid' : 'fruchterman'
-          }
-
-          setCurrentLayout(selectedLayout)
-        }}
-      />
+      <LayoutPanel />
       <GroupingPanel />
 
       {/* Global Loading Spinner */}
