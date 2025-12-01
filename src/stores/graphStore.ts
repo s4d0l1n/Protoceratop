@@ -8,13 +8,21 @@ import type { GraphNode, GraphEdge, MetaNode } from '@/types'
  * Persists to localStorage to survive page refreshes
  */
 
+export interface PhysicsModifiers {
+  edgeLength: number
+  springStrength: number
+  centerGravity: number
+}
+
 interface GraphState {
   // Graph data
   nodes: GraphNode[]
   edges: GraphEdge[]
   metaNodes: MetaNode[]
+  physicsModifiers: PhysicsModifiers
 
   // Actions
+  setPhysicsModifiers: (modifiers: Partial<PhysicsModifiers>) => void
   setNodes: (nodes: GraphNode[]) => void
   setEdges: (edges: GraphEdge[]) => void
   addNode: (node: GraphNode) => void
@@ -43,8 +51,17 @@ export const useGraphStore = create<GraphState>()(
   nodes: [],
   edges: [],
   metaNodes: [],
+  physicsModifiers: {
+    edgeLength: 0,
+    springStrength: 0,
+    centerGravity: 0,
+  },
 
   // Actions
+  setPhysicsModifiers: (modifiers) =>
+    set((state) => ({
+      physicsModifiers: { ...state.physicsModifiers, ...modifiers },
+    })),
   setNodes: (nodes) =>
     set({ nodes }),
 

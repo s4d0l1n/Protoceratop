@@ -58,7 +58,7 @@ export function GroupingPanel() {
     const newLayer: CombinationLayer = {
       id: `layer-${Date.now()}`,
       attribute: '',
-      autoCollapse: true,
+      autoCollapse: false, // Default to expanded so nodes are visible inside boxes
       order: layers.length,
     }
     setLayers([...layers, newLayer])
@@ -251,23 +251,6 @@ export function GroupingPanel() {
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id={`collapse-${layer.id}`}
-                      checked={layer.autoCollapse}
-                      onChange={(e) =>
-                        handleUpdateLayer(layer.id, { autoCollapse: e.target.checked })
-                      }
-                      className="w-4 h-4 cursor-pointer"
-                    />
-                    <label
-                      htmlFor={`collapse-${layer.id}`}
-                      className="text-sm text-slate-300 cursor-pointer"
-                    >
-                      Auto-collapse this layer
-                    </label>
-                  </div>
                 </div>
               ))}
             </div>
@@ -277,11 +260,13 @@ export function GroupingPanel() {
           <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
             <div className="font-medium text-blue-400 mb-2">How Nested Combinations Work</div>
             <ul className="text-sm text-slate-300 space-y-1.5">
-              <li>• <strong>Layer 1 (Base):</strong> Nodes with matching attributes are combined</li>
+              <li>• <strong>Layer 1 (Base):</strong> Nodes with matching attributes are grouped together</li>
               <li>• <strong>Layer 2+ (Nested):</strong> Combines the combinations from previous layers</li>
-              <li>• Only combinations with 2+ items are created</li>
-              <li>• Click containers to expand/collapse and see contents</li>
-              <li>• Edges are preserved and connect to/from containers</li>
+              <li>• Only groups with 2+ items are created</li>
+              <li>• <strong>Group boxes:</strong> Draw around nodes with dashed blue borders and a header label</li>
+              <li>• <strong>Drag boxes:</strong> Click and drag the header to move the entire group</li>
+              <li>• <strong>Individual nodes:</strong> Can still be clicked and moved independently within boxes</li>
+              <li>• Edges are preserved and connect to/from nodes as normal</li>
               <li>• Example: Layer 1 by "department", Layer 2 by "location" groups departments by location</li>
             </ul>
           </div>

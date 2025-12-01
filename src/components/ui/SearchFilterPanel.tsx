@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { X, Search as SearchIcon, Tag, GitBranch, Hash } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useGraphStore } from '@/stores/graphStore'
@@ -159,10 +159,18 @@ export function SearchFilterPanel() {
     return result
   }, [nodes, searchQuery, selectedTags, minInDegree, maxInDegree, minOutDegree, maxOutDegree, minTotalDegree, maxTotalDegree, attributeFilters, nodeDegrees])
 
+  // Track previous filtered IDs to avoid infinite loops
+  const prevFilteredIdsRef = useRef<string>('')
+
   // Update filtered node IDs when filters change
-  useMemo(() => {
-    const filteredIds = new Set(filteredNodes.map((n) => n.id))
-    setFilteredNodeIds(filteredIds)
+  useEffect(() => {
+    const filteredIds = filteredNodes.map((n) => n.id).sort().join(',')
+
+    // Only update if the IDs actually changed
+    if (filteredIds !== prevFilteredIdsRef.current) {
+      prevFilteredIdsRef.current = filteredIds
+      setFilteredNodeIds(new Set(filteredNodes.map((n) => n.id)))
+    }
   }, [filteredNodes, setFilteredNodeIds])
 
   if (!isOpen) return null
