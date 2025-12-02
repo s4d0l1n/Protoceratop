@@ -1796,8 +1796,11 @@ export function G6Graph() {
 
         // Draw collapsed meta-node - showing contained nodes with full styling
 
-        // Get contained nodes (use ALL nodes, not just visibleNodes, to show all nodes in the collapsed group)
-        const containedNodes = nodes.filter((n) => metaNode.childNodeIds.includes(n.id))
+        // Get contained nodes (filter by search if active)
+        let containedNodes = nodes.filter((n) => metaNode.childNodeIds.includes(n.id))
+        if (filteredNodeIds && filteredNodeIds.size > 0) {
+          containedNodes = containedNodes.filter((n) => filteredNodeIds.has(n.id))
+        }
 
         // Calculate layout for contained nodes (grid layout)
         // Use wider rectangles instead of squares for better visual organization
@@ -2312,9 +2315,22 @@ export function G6Graph() {
         onMouseLeave={handleMouseUp}
       />
 
+
+      {/* Export button */}
+      {nodes.length > 0 && (
+        <button
+          onClick={handleExport}
+          className="group absolute top-4 right-4 px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-all flex items-center gap-2 overflow-hidden hover:px-3"
+          title="Export graph as SVG"
+        >
+          <Download className="w-4 h-4 flex-shrink-0" />
+          <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Export SVG</span>
+        </button>
+      )}
+
       {/* Graph info indicator */}
       {nodes.length > 0 && (
-        <div className="absolute top-4 left-4 bg-dark-secondary/90 border border-dark rounded-lg overflow-hidden">
+        <div className="absolute top-16 right-4 bg-dark-secondary/90 border border-dark rounded-lg overflow-hidden">
           <button
             onClick={() => setShowGraphInfo(!showGraphInfo)}
             className="group w-full px-2 py-2 text-slate-300 hover:text-slate-100 transition-colors flex items-center gap-2"
@@ -2348,18 +2364,6 @@ export function G6Graph() {
         </div>
       )}
 
-      {/* Export button */}
-      {nodes.length > 0 && (
-        <button
-          onClick={handleExport}
-          className="group absolute top-4 right-4 px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-all flex items-center gap-2 overflow-hidden hover:px-3"
-          title="Export graph as SVG"
-        >
-          <Download className="w-4 h-4 flex-shrink-0" />
-          <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Export SVG</span>
-        </button>
-      )}
-
 
       {/* Hull Outlines Toggle */}
       {nodes.length > 0 && (
@@ -2377,8 +2381,7 @@ export function G6Graph() {
 
       {/* Physics Controls */}
       {nodes.length > 0 && (
-        <div className="absolute top-40 right-4 space-y-2">
-          {/* Physics Panel */}
+        <div className="absolute top-40 right-4">
           <div className="bg-dark-secondary/90 border border-dark rounded-lg overflow-hidden">
             <button
               onClick={() => setShowPhysicsControls(!showPhysicsControls)}
@@ -2497,21 +2500,20 @@ export function G6Graph() {
             </div>
           )}
           </div>
+        </div>
+      )}
 
-          {/* Minimap Panel */}
+      {/* Minimap Panel */}
+      {nodes.length > 0 && (
+        <div className="absolute top-64 right-4">
           <div className="bg-dark-secondary/90 border border-dark rounded-lg overflow-hidden">
             <button
               onClick={() => setShowMinimap(!showMinimap)}
-              className={`group w-full px-2 py-2 text-sm transition-all flex items-center justify-between gap-2 overflow-hidden hover:px-3 ${
-                showMinimap ? 'text-cyber-400 bg-dark' : 'text-slate-300 hover:text-cyber-400 hover:bg-dark'
-              }`}
+              className="group w-full px-2 py-2 text-sm text-slate-300 hover:text-cyber-400 hover:bg-dark transition-all flex items-center gap-2 overflow-hidden hover:px-3"
               title="Minimap"
             >
-              <div className="flex items-center gap-2 overflow-hidden">
-                <MapIcon className="w-4 h-4 flex-shrink-0" />
-                <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Minimap</span>
-              </div>
-              {showMinimap && <ChevronUp className="w-4 h-4 flex-shrink-0" />}
+              <MapIcon className="w-4 h-4 flex-shrink-0" />
+              <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Minimap</span>
             </button>
 
             {/* Minimap content */}
@@ -2587,15 +2589,6 @@ export function G6Graph() {
         }}
       />
 
-      {/* Zoom indicator */}
-      {nodes.length > 0 && (
-        <div className="absolute bottom-6 left-6 px-3 py-2 bg-dark-secondary/90 border border-dark rounded-lg text-sm text-slate-300">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Zoom:</span>
-            <span className="font-medium">{(zoom * 100).toFixed(0)}%</span>
-          </div>
-        </div>
-      )}
 
     </div>
   )
@@ -2653,6 +2646,13 @@ function GraphControls({ zoom, onZoomIn, onZoomOut, onReset }: GraphControlsProp
           />
         </svg>
       </button>
+      {/* Zoom indicator */}
+      <div className="px-3 py-2 bg-dark-secondary/90 border border-dark rounded-lg text-sm text-slate-300">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">Zoom:</span>
+          <span className="font-medium">{(zoom * 100).toFixed(0)}%</span>
+        </div>
+      </div>
     </div>
   )
 }

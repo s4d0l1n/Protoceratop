@@ -30,3 +30,9 @@ dist-ssr
 
 # Build files
 build
+
+# SSH keys
+github
+github.pub
+gitkey
+gitkey.pub
