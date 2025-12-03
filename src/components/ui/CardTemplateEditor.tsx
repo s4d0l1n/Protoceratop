@@ -333,6 +333,52 @@ export function CardTemplateEditor({ template, onClose, onSave }: CardTemplateEd
             </div>
           </section>
 
+          {/* Live Preview */}
+          <section>
+            <h3 className="text-lg font-semibold text-slate-100 mb-3">Live Preview</h3>
+            <div className="p-6 bg-dark border border-dark rounded-lg flex items-center justify-center">
+              <div
+                style={{
+                  position: 'relative',
+                  width: `${120 * size}px`,
+                  height: `${80 * size}px`,
+                  backgroundColor: transparentShape ? 'transparent' : backgroundColor,
+                  borderColor: borderColor,
+                  borderWidth: `${borderWidth}px`,
+                  borderStyle: 'solid',
+                  borderRadius: shape === 'circle' ? '50%' : shape === 'rect' ? '6px' : shape === 'ellipse' ? '50%' : '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  padding: '8px',
+                  boxShadow: shadowEnabled ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}` : 'none',
+                  filter: glowEnabled ? `drop-shadow(0 0 ${glowBlur}px ${glowColor})` : 'none',
+                }}
+              >
+                {showIcon && (
+                  <div style={{
+                    fontSize: `${24 * iconSize}px`,
+                    color: iconColor,
+                    lineHeight: 1,
+                  }}>
+                    {icon}
+                  </div>
+                )}
+                <div style={{ fontSize: '10px', color: '#e2e8f0', textAlign: 'center', fontWeight: 'bold' }}>
+                  Sample Node
+                </div>
+                <div style={{ fontSize: '8px', color: '#94a3b8', textAlign: 'center' }}>
+                  ID: node-123
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Preview updates in real-time as you change settings below
+            </p>
+          </section>
+
           {/* Visual Style */}
           <section>
             <h3 className="text-lg font-semibold text-slate-100 mb-3">Visual Style</h3>

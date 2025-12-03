@@ -133,6 +133,64 @@ export function EdgeTemplateEditor({ template, onClose, onSave }: EdgeTemplateEd
             </div>
           </div>
 
+          {/* Live Preview */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-slate-300 border-b border-dark pb-2">
+              Live Preview
+            </h3>
+            <div className="p-8 bg-dark border border-dark rounded-lg flex items-center justify-center">
+              <svg width="300" height="100" viewBox="0 0 300 100">
+                {/* Source node */}
+                <circle cx="30" cy="50" r="20" fill="#1e293b" stroke="#06b6d4" strokeWidth="2" />
+                <text x="30" y="55" textAnchor="middle" fill="#e2e8f0" fontSize="10">Start</text>
+
+                {/* Edge line */}
+                <line
+                  x1="50"
+                  y1="50"
+                  x2="250"
+                  y2="50"
+                  stroke={color}
+                  strokeWidth={width}
+                  strokeDasharray={style === 'dashed' ? '10,5' : style === 'dotted' ? '2,2' : 'none'}
+                  opacity={opacity}
+                />
+
+                {/* Arrow at end */}
+                {arrowPosition !== 'none' && arrowPosition !== 'start' && (
+                  <polygon
+                    points="250,50 242,46 242,54"
+                    fill={color}
+                    opacity={opacity}
+                  />
+                )}
+
+                {/* Arrow at start */}
+                {(arrowPosition === 'start' || arrowPosition === 'both') && (
+                  <polygon
+                    points="50,50 58,46 58,54"
+                    fill={color}
+                    opacity={opacity}
+                  />
+                )}
+
+                {/* Target node */}
+                <circle cx="270" cy="50" r="20" fill="#1e293b" stroke="#06b6d4" strokeWidth="2" />
+                <text x="270" y="55" textAnchor="middle" fill="#e2e8f0" fontSize="10">End</text>
+
+                {/* Edge label */}
+                {label && (
+                  <text x="150" y="40" textAnchor="middle" fill={color} fontSize="12" opacity={opacity}>
+                    {label}
+                  </text>
+                )}
+              </svg>
+            </div>
+            <p className="text-xs text-slate-500">
+              Preview updates in real-time as you change settings below
+            </p>
+          </div>
+
           {/* Visual Properties */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-slate-300 border-b border-dark pb-2">

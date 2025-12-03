@@ -182,6 +182,62 @@ export function FontTemplateEditor({ template, onClose, onSave }: FontTemplateEd
             )}
           </section>
 
+          {/* Live Preview */}
+          <section>
+            <button
+              onClick={() => toggleSection('preview')}
+              className="flex items-center gap-2 w-full mb-3"
+            >
+              {expandedSections.has('preview') ? (
+                <ChevronDown className="w-5 h-5 text-slate-400" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-slate-400" />
+              )}
+              <h3 className="text-lg font-semibold text-slate-100">Live Preview</h3>
+            </button>
+
+            {expandedSections.has('preview') && (
+              <div className="pl-7">
+                <div className="p-6 bg-dark border border-dark rounded-lg flex items-center justify-center">
+                  <div
+                    style={{
+                      fontFamily: fontFamily,
+                      fontSize: `${fontSize * 1.5}rem`,
+                      fontWeight: fontWeight,
+                      fontStyle: fontStyle,
+                      color: gradientEnabled
+                        ? 'transparent'
+                        : color,
+                      backgroundColor: backgroundColor || 'transparent',
+                      textDecoration: textDecoration,
+                      textTransform: textTransform,
+                      textShadow: shadowEnabled
+                        ? `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor}`
+                        : 'none',
+                      filter: glowEnabled
+                        ? `drop-shadow(0 0 ${glowIntensity * 10}px ${glowColor})`
+                        : 'none',
+                      backgroundImage: gradientEnabled
+                        ? `linear-gradient(${gradientDirection === 'horizontal' ? 'to right' : 'to bottom'}, ${gradientStartColor}, ${gradientEndColor})`
+                        : 'none',
+                      backgroundClip: gradientEnabled ? 'text' : 'border-box',
+                      WebkitBackgroundClip: gradientEnabled ? 'text' : 'border-box',
+                      WebkitTextFillColor: gradientEnabled ? 'transparent' : 'inherit',
+                      padding: backgroundColor ? '0.5rem 1rem' : '0',
+                      borderRadius: backgroundColor ? '0.375rem' : '0',
+                      display: 'inline-block',
+                    }}
+                  >
+                    Sample Text
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Preview updates in real-time as you change settings below
+                </p>
+              </div>
+            )}
+          </section>
+
           {/* Font Properties */}
           <section>
             <button

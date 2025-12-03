@@ -388,11 +388,6 @@ export function G6Graph() {
       return
     }
 
-    // If locked, don't allow node dragging
-    if (isLocked) {
-      return
-    }
-
     // Check if mouse is over a meta-node first (they're larger)
     for (const [metaNodeId, pos] of metaNodePositions.entries()) {
       const metaNode = visibleMetaNodes.find((mn) => mn.id === metaNodeId)
@@ -421,9 +416,12 @@ export function G6Graph() {
           y >= containerY &&
           y <= containerY + containerHeight
         ) {
-          setDraggedNodeId(metaNodeId)
-          setDragOffset({ x: x - pos.x, y: y - pos.y })
-          return
+          // If locked, don't allow node dragging - fall through to panning
+          if (!isLocked) {
+            setDraggedNodeId(metaNodeId)
+            setDragOffset({ x: x - pos.x, y: y - pos.y })
+            return
+          }
         }
       } else {
         // Expanded meta-node - check badge area
@@ -438,9 +436,12 @@ export function G6Graph() {
           y >= badgeY &&
           y <= badgeY + badgeHeight
         ) {
-          setDraggedNodeId(metaNodeId)
-          setDragOffset({ x: x - pos.x, y: y - pos.y })
-          return
+          // If locked, don't allow node dragging - fall through to panning
+          if (!isLocked) {
+            setDraggedNodeId(metaNodeId)
+            setDragOffset({ x: x - pos.x, y: y - pos.y })
+            return
+          }
         }
       }
     }
@@ -455,13 +456,16 @@ export function G6Graph() {
 
       const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
       if (distance < 60) { // Hit radius for card nodes
-        setDraggedNodeId(nodeId)
-        setDragOffset({ x: x - pos.x, y: y - pos.y })
-        return
+        // If locked, don't allow node dragging - fall through to panning
+        if (!isLocked) {
+          setDraggedNodeId(nodeId)
+          setDragOffset({ x: x - pos.x, y: y - pos.y })
+          return
+        }
       }
     }
 
-    // If not over a node, start panning
+    // If not over a node (or locked and clicked on node), start panning
     setIsPanning(true)
     setPanStart({ x: e.clientX, y: e.clientY })
   }, [nodePositions, metaNodePositions, panOffset, zoom, isLocked, visibleMetaNodes, metaNodes])
@@ -2516,12 +2520,15 @@ export function G6Graph() {
                 <input
                   type="range"
                   min="1000"
-                  max="30000"
+                  max="50000"
                   step="500"
                   value={physicsParams.repulsionStrength}
                   onChange={(e) => setPhysicsParams(prev => ({ ...prev, repulsionStrength: Number(e.target.value) }))}
                   className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  How strongly nodes push away from each other
+                </p>
               </div>
 
               {/* Attraction Strength */}
@@ -2532,12 +2539,15 @@ export function G6Graph() {
                 <input
                   type="range"
                   min="0.01"
-                  max="2.0"
+                  max="5.0"
                   step="0.05"
                   value={physicsParams.attractionStrength}
                   onChange={(e) => setPhysicsParams(prev => ({ ...prev, attractionStrength: Number(e.target.value) }))}
                   className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  How tightly edges pull connected nodes together
+                </p>
               </div>
 
               {/* Leaf Spring Strength */}
@@ -2548,12 +2558,15 @@ export function G6Graph() {
                 <input
                   type="range"
                   min="0.1"
-                  max="5.0"
+                  max="10.0"
                   step="0.1"
                   value={physicsParams.leafSpringStrength}
                   onChange={(e) => setPhysicsParams(prev => ({ ...prev, leafSpringStrength: Number(e.target.value) }))}
                   className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  How closely leaf nodes orbit their parent nodes
+                </p>
               </div>
 
               {/* Damping */}
@@ -2570,6 +2583,9 @@ export function G6Graph() {
                   onChange={(e) => setPhysicsParams(prev => ({ ...prev, damping: Number(e.target.value) }))}
                   className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Energy loss per frame - higher values slow movement
+                </p>
               </div>
 
               {/* Node Chaos */}
@@ -2594,19 +2610,19 @@ export function G6Graph() {
               {/* Center Gravity */}
               <div>
                 <label className="text-xs text-slate-400 block mb-1">
-                  Center Gravity: {physicsParams.centerGravity.toFixed(3)}
+                  Center Gravity: {physicsParams.centerGravity.toFixed(4)}
                 </label>
                 <input
                   type="range"
-                  min="0"
-                  max="0.01"
+                  min="-0.02"
+                  max="0.02"
                   step="0.0001"
                   value={physicsParams.centerGravity}
                   onChange={(e) => setPhysicsParams(prev => ({ ...prev, centerGravity: Number(e.target.value) }))}
                   className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Pulls nodes toward canvas center
+                  Positive pulls toward center, negative pushes away
                 </p>
               </div>
 
