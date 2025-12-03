@@ -377,8 +377,34 @@ export function G6Graph() {
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left - panOffset.x) / zoom
-    const y = (e.clientY - rect.top - panOffset.y) / zoom
+
+    // Convert screen coordinates to canvas coordinates
+    let canvasX = e.clientX - rect.left
+    let canvasY = e.clientY - rect.top
+
+    // Apply rotation if needed (rotate back to graph space)
+    if (rotation !== 0) {
+      const centerX = canvas.width / 2
+      const centerY = canvas.height / 2
+
+      // Translate to origin
+      canvasX -= centerX
+      canvasY -= centerY
+
+      // Rotate (inverse rotation)
+      const cos = Math.cos(-rotation)
+      const sin = Math.sin(-rotation)
+      const rotatedX = canvasX * cos - canvasY * sin
+      const rotatedY = canvasX * sin + canvasY * cos
+
+      // Translate back
+      canvasX = rotatedX + centerX
+      canvasY = rotatedY + centerY
+    }
+
+    // Apply pan and zoom transformations
+    const x = (canvasX - panOffset.x) / zoom
+    const y = (canvasY - panOffset.y) / zoom
 
     // If space key is pressed or middle mouse button, start panning
     if (e.button === 1 || e.shiftKey) {
@@ -468,7 +494,7 @@ export function G6Graph() {
     // If not over a node (or locked and clicked on node), start panning
     setIsPanning(true)
     setPanStart({ x: e.clientX, y: e.clientY })
-  }, [nodePositions, metaNodePositions, panOffset, zoom, isLocked, visibleMetaNodes, metaNodes])
+  }, [nodePositions, metaNodePositions, panOffset, zoom, rotation, isLocked, visibleMetaNodes, metaNodes])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
