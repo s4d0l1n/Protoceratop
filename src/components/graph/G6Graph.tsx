@@ -192,13 +192,10 @@ export function G6Graph() {
     const newDeviations = new Map<string, number>()
 
     nodes.forEach((node) => {
-      // Generate a random deviation factor for this node
-      // chaos = 0: deviation = 1.0 (no change)
-      // chaos = 100: deviation = random between 0.0 and 2.0
-      // Formula: 1.0 + (random(-1, 1) * chaos/100)
+      // Store a random factor between -1 and 1 for each node
+      // This will be multiplied by chaos% and max value when applied
       const randomFactor = (Math.random() * 2 - 1) // random between -1 and 1
-      const deviation = 1.0 + (randomFactor * physicsParams.nodeChaosFactor / 100)
-      newDeviations.set(node.id, deviation)
+      newDeviations.set(node.id, randomFactor)
     })
 
     setNodeDeviationFactors(newDeviations)
@@ -1081,12 +1078,19 @@ export function G6Graph() {
               // Normal connections: standard spring parameters (scaled by user parameter)
               idealLength = 120  // Structural connections only
 
-              // Apply node chaos deviation factor for attraction strength
-              const nodeDeviation = nodeDeviationFactors.get(node.id) || 1.0
-              const neighborDeviation = nodeDeviationFactors.get(neighborId) || 1.0
-              const averageDeviation = (nodeDeviation + neighborDeviation) / 2
+              // Apply node chaos: add a percentage of MAX attraction based on each node's random factor
+              const nodeRandomFactor = nodeDeviationFactors.get(node.id) || 0
+              const neighborRandomFactor = nodeDeviationFactors.get(neighborId) || 0
+              const averageRandomFactor = (nodeRandomFactor + neighborRandomFactor) / 2
 
-              springStrength = 0.2 * physicsParams.attractionStrength * averageDeviation
+              // Start with base spring strength
+              springStrength = 0.2 * physicsParams.attractionStrength
+
+              // Add chaos: ±(chaos% of MAX_ATTRACTION) based on random factor
+              const MAX_ATTRACTION = 2.0
+              const MIN_ATTRACTION = 0.01
+              const chaosAmount = averageRandomFactor * (physicsParams.nodeChaosFactor / 100) * MAX_ATTRACTION
+              springStrength = Math.max(MIN_ATTRACTION, springStrength + chaosAmount)
             }
 
             const dx = neighborPos.x - pos.x
@@ -1157,12 +1161,19 @@ export function G6Graph() {
               const nodeHash = (node.id.charCodeAt(0) + otherNode.id.charCodeAt(0)) % 100
               const repulsionVariation = 0.5 + (nodeHash / 100) * 1.0  // 0.5 to 1.5 range (50%-150%)
 
-              // Apply node chaos deviation factor (each node has unique physics behavior)
-              const nodeDeviation = nodeDeviationFactors.get(node.id) || 1.0
-              const otherDeviation = nodeDeviationFactors.get(otherNode.id) || 1.0
-              const averageDeviation = (nodeDeviation + otherDeviation) / 2
+              // Apply node chaos: add a percentage of MAX repulsion based on each node's random factor
+              const nodeRandomFactor = nodeDeviationFactors.get(node.id) || 0
+              const otherRandomFactor = nodeDeviationFactors.get(otherNode.id) || 0
+              const averageRandomFactor = (nodeRandomFactor + otherRandomFactor) / 2
 
-              let repulsionStrength = physicsParams.repulsionStrength * repulsionVariation * averageDeviation  // Use user-controlled value with chaos
+              // Start with base repulsion * variation
+              let repulsionStrength = physicsParams.repulsionStrength * repulsionVariation
+
+              // Add chaos: ±(chaos% of MAX_REPULSION) based on random factor
+              const MAX_REPULSION = 30000
+              const MIN_REPULSION = 1000
+              const chaosAmount = averageRandomFactor * (physicsParams.nodeChaosFactor / 100) * MAX_REPULSION
+              repulsionStrength = Math.max(MIN_REPULSION, repulsionStrength + chaosAmount)
 
               // Leaves get almost no repulsion charge (don't push parent away)
               if (isLeaf) {
