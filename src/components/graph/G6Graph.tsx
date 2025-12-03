@@ -72,11 +72,15 @@ export function G6Graph() {
     leafSpringStrength: 0.8,          // How tightly leaves stick to parents
     damping: 0.85,                    // Energy loss per frame (0-1)
     centerGravity: 0.001,             // Weak pull toward canvas center
+    nodeChaosFactor: 0,               // Random variation per node (0-100)
   }
 
   // Physics parameters - adjustable by user
   const [physicsParams, setPhysicsParams] = useState(defaultPhysicsParams)
   const [showPhysicsControls, setShowPhysicsControls] = useState(false)
+
+  // Node deviation factors - each node gets a random multiplier based on chaos factor
+  const [nodeDeviationFactors, setNodeDeviationFactors] = useState<Map<string, number>>(new Map())
 
   // Visualization features
   const [showMinimap, setShowMinimap] = useState(false)
@@ -182,6 +186,23 @@ export function G6Graph() {
       return metaNode.childNodeIds.some((childId) => filteredNodeIds.has(childId))
     })
   }, [metaNodes, filteredNodeIds])
+
+  // Calculate node deviation factors when nodes or chaos factor changes
+  useEffect(() => {
+    const newDeviations = new Map<string, number>()
+
+    nodes.forEach((node) => {
+      // Generate a random deviation factor for this node
+      // chaos = 0: deviation = 1.0 (no change)
+      // chaos = 100: deviation = random between 0.0 and 2.0
+      // Formula: 1.0 + (random(-1, 1) * chaos/100)
+      const randomFactor = (Math.random() * 2 - 1) // random between -1 and 1
+      const deviation = 1.0 + (randomFactor * physicsParams.nodeChaosFactor / 100)
+      newDeviations.set(node.id, deviation)
+    })
+
+    setNodeDeviationFactors(newDeviations)
+  }, [nodes, physicsParams.nodeChaosFactor])
 
   // Memoize transformed edges for rendering with grouping
   const transformedEdges = useMemo(() => {
@@ -1059,7 +1080,13 @@ export function G6Graph() {
             } else {
               // Normal connections: standard spring parameters (scaled by user parameter)
               idealLength = 120  // Structural connections only
-              springStrength = 0.2 * physicsParams.attractionStrength
+
+              // Apply node chaos deviation factor for attraction strength
+              const nodeDeviation = nodeDeviationFactors.get(node.id) || 1.0
+              const neighborDeviation = nodeDeviationFactors.get(neighborId) || 1.0
+              const averageDeviation = (nodeDeviation + neighborDeviation) / 2
+
+              springStrength = 0.2 * physicsParams.attractionStrength * averageDeviation
             }
 
             const dx = neighborPos.x - pos.x
@@ -1129,7 +1156,13 @@ export function G6Graph() {
               // Add LARGE variation based on node IDs for organic, non-uniform spacing
               const nodeHash = (node.id.charCodeAt(0) + otherNode.id.charCodeAt(0)) % 100
               const repulsionVariation = 0.5 + (nodeHash / 100) * 1.0  // 0.5 to 1.5 range (50%-150%)
-              let repulsionStrength = physicsParams.repulsionStrength * repulsionVariation  // Use user-controlled value
+
+              // Apply node chaos deviation factor (each node has unique physics behavior)
+              const nodeDeviation = nodeDeviationFactors.get(node.id) || 1.0
+              const otherDeviation = nodeDeviationFactors.get(otherNode.id) || 1.0
+              const averageDeviation = (nodeDeviation + otherDeviation) / 2
+
+              let repulsionStrength = physicsParams.repulsionStrength * repulsionVariation * averageDeviation  // Use user-controlled value with chaos
 
               // Leaves get almost no repulsion charge (don't push parent away)
               if (isLeaf) {
@@ -2446,6 +2479,25 @@ export function G6Graph() {
                   onChange={(e) => setPhysicsParams(prev => ({ ...prev, damping: Number(e.target.value) }))}
                   className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
                 />
+              </div>
+
+              {/* Node Chaos */}
+              <div>
+                <label className="text-xs text-slate-400 block mb-1">
+                  Node Chaos: {physicsParams.nodeChaosFactor.toFixed(0)}%
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={physicsParams.nodeChaosFactor}
+                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, nodeChaosFactor: Number(e.target.value) }))}
+                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Randomizes physics per node for organic layouts
+                </p>
               </div>
 
               {/* Action buttons */}
