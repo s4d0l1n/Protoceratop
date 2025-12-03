@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { Download, Settings, RotateCcw, ChevronDown, ChevronUp, Map as MapIcon, Shapes, Info } from 'lucide-react'
+import { Download, Settings, RotateCcw, RotateCw, Lock, LockOpen, ChevronDown, ChevronUp, Map as MapIcon, Shapes, Info } from 'lucide-react'
 import { useGraphStore } from '@/stores/graphStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -87,6 +87,14 @@ export function G6Graph() {
   const [showHulls, setShowHulls] = useState(false)
   const [showGraphInfo, setShowGraphInfo] = useState(false)
   const [clusterHulls, setClusterHulls] = useState<Map<number, { x: number; y: number }[]>>(new Map())
+
+  // View controls
+  const [isLocked, setIsLocked] = useState(false)
+  const [rotation, setRotation] = useState(0) // in degrees
+  const [targetZoom, setTargetZoom] = useState(1)
+  const [targetPanOffset, setTargetPanOffset] = useState({ x: 0, y: 0 })
+  const [targetRotation, setTargetRotation] = useState(0)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   // Function to calculate hulls from current node positions (parent-leaf clustering)
   const calculateHullsFromPositions = useCallback((
@@ -200,6 +208,41 @@ export function G6Graph() {
 
     setNodeDeviationFactors(newDeviations)
   }, [nodes, physicsParams.nodeChaosFactor])
+
+  // Smooth animation for view changes (zoom, pan, rotation)
+  useEffect(() => {
+    if (!isAnimating) return
+
+    const animationDuration = 300 // ms
+    const startTime = Date.now()
+    const startZoom = zoom
+    const startPan = { ...panOffset }
+    const startRotation = rotation
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / animationDuration, 1)
+
+      // Easing function (ease-out cubic)
+      const eased = 1 - Math.pow(1 - progress, 3)
+
+      // Interpolate values
+      setZoom(startZoom + (targetZoom - startZoom) * eased)
+      setPanOffset({
+        x: startPan.x + (targetPanOffset.x - startPan.x) * eased,
+        y: startPan.y + (targetPanOffset.y - startPan.y) * eased,
+      })
+      setRotation(startRotation + (targetRotation - startRotation) * eased)
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        setIsAnimating(false)
+      }
+    }
+
+    requestAnimationFrame(animate)
+  }, [isAnimating, targetZoom, targetPanOffset, targetRotation])
 
   // Memoize transformed edges for rendering with grouping
   const transformedEdges = useMemo(() => {
@@ -342,6 +385,11 @@ export function G6Graph() {
       return
     }
 
+    // If locked, don't allow node dragging
+    if (isLocked) {
+      return
+    }
+
     // Check if mouse is over a meta-node first (they're larger)
     for (const [metaNodeId, pos] of metaNodePositions.entries()) {
       const metaNode = visibleMetaNodes.find((mn) => mn.id === metaNodeId)
@@ -413,7 +461,7 @@ export function G6Graph() {
     // If not over a node, start panning
     setIsPanning(true)
     setPanStart({ x: e.clientX, y: e.clientY })
-  }, [nodePositions, metaNodePositions, panOffset, zoom])
+  }, [nodePositions, metaNodePositions, panOffset, zoom, isLocked, visibleMetaNodes, metaNodes])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -1418,10 +1466,12 @@ export function G6Graph() {
       ctx.fillStyle = '#0f172a'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Save context and apply pan/zoom transformations
+      // Save context and apply pan/zoom/rotation transformations
       ctx.save()
-      ctx.translate(panOffset.x, panOffset.y)
+      ctx.translate(panOffset.x + canvas.width / 2, panOffset.y + canvas.height / 2)
+      ctx.rotate((rotation * Math.PI) / 180)
       ctx.scale(zoom, zoom)
+      ctx.translate(-canvas.width / 2, -canvas.height / 2)
 
       // Draw swimlanes if in timeline mode
       if (swimlanes.size > 0) {
@@ -2327,7 +2377,7 @@ export function G6Graph() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [nodes, edges, nodePositions, selectedNodeId, filteredNodeIds, visibleNodes, swimlanes, metaNodes, visibleMetaNodes, metaNodePositions, panOffset, zoom, transformedEdges, targetNodePositions, targetMetaNodePositions, draggedNodeId, manuallyPositionedMetaNodes])
+  }, [nodes, edges, nodePositions, selectedNodeId, filteredNodeIds, visibleNodes, swimlanes, metaNodes, visibleMetaNodes, metaNodePositions, panOffset, zoom, rotation, transformedEdges, targetNodePositions, targetMetaNodePositions, draggedNodeId, manuallyPositionedMetaNodes])
 
   return (
     <div className="relative w-full h-full">
@@ -2552,6 +2602,8 @@ export function G6Graph() {
       {/* Graph Controls */}
       <GraphControls
         zoom={zoom}
+        rotation={rotation}
+        isLocked={isLocked}
         onZoomIn={() => {
           const canvas = canvasRef.current
           if (!canvas) return
@@ -2571,8 +2623,10 @@ export function G6Graph() {
           const newPanX = centerX - graphX * newZoom
           const newPanY = centerY - graphY * newZoom
 
-          setPanOffset({ x: newPanX, y: newPanY })
-          setZoom(newZoom)
+          // Set target values and start animation
+          setTargetZoom(newZoom)
+          setTargetPanOffset({ x: newPanX, y: newPanY })
+          setIsAnimating(true)
         }}
         onZoomOut={() => {
           const canvas = canvasRef.current
@@ -2593,13 +2647,27 @@ export function G6Graph() {
           const newPanX = centerX - graphX * newZoom
           const newPanY = centerY - graphY * newZoom
 
-          setPanOffset({ x: newPanX, y: newPanY })
-          setZoom(newZoom)
+          // Set target values and start animation
+          setTargetZoom(newZoom)
+          setTargetPanOffset({ x: newPanX, y: newPanY })
+          setIsAnimating(true)
         }}
         onReset={() => {
-          setZoom(1)
-          setPanOffset({ x: 0, y: 0 })
+          // Set target values and start animation
+          setTargetZoom(1)
+          setTargetPanOffset({ x: 0, y: 0 })
+          setTargetRotation(0)
+          setIsAnimating(true)
         }}
+        onRotateLeft={() => {
+          setTargetRotation((rotation - 15) % 360)
+          setIsAnimating(true)
+        }}
+        onRotateRight={() => {
+          setTargetRotation((rotation + 15) % 360)
+          setIsAnimating(true)
+        }}
+        onToggleLock={() => setIsLocked(!isLocked)}
         showMinimap={showMinimap}
         onToggleMinimap={() => setShowMinimap(!showMinimap)}
         minimapContent={
@@ -2629,15 +2697,20 @@ export function G6Graph() {
  */
 interface GraphControlsProps {
   zoom: number
+  rotation: number
+  isLocked: boolean
   onZoomIn: () => void
   onZoomOut: () => void
   onReset: () => void
+  onRotateLeft: () => void
+  onRotateRight: () => void
+  onToggleLock: () => void
   showMinimap: boolean
   onToggleMinimap: () => void
   minimapContent?: React.ReactNode
 }
 
-function GraphControls({ zoom, onZoomIn, onZoomOut, onReset, showMinimap, onToggleMinimap, minimapContent }: GraphControlsProps) {
+function GraphControls({ zoom, rotation, isLocked, onZoomIn, onZoomOut, onReset, onRotateLeft, onRotateRight, onToggleLock, showMinimap, onToggleMinimap, minimapContent }: GraphControlsProps) {
   return (
     <div className="absolute bottom-6 right-4 flex items-center gap-2">
       {/* Zoom indicator */}
@@ -2675,7 +2748,7 @@ function GraphControls({ zoom, onZoomIn, onZoomOut, onReset, showMinimap, onTogg
       <button
         onClick={onReset}
         className="w-10 h-10 bg-dark-secondary hover:bg-dark-tertiary border border-dark rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors shadow-lg"
-        title="Reset view (zoom 100%, center)"
+        title="Reset view (zoom 100%, center, no rotation)"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
@@ -2685,6 +2758,31 @@ function GraphControls({ zoom, onZoomIn, onZoomOut, onReset, showMinimap, onTogg
             d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
           />
         </svg>
+      </button>
+      <button
+        onClick={onRotateLeft}
+        className="w-10 h-10 bg-dark-secondary hover:bg-dark-tertiary border border-dark rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors shadow-lg"
+        title="Rotate counter-clockwise"
+      >
+        <RotateCcw className="w-5 h-5" />
+      </button>
+      <button
+        onClick={onRotateRight}
+        className="w-10 h-10 bg-dark-secondary hover:bg-dark-tertiary border border-dark rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors shadow-lg"
+        title="Rotate clockwise"
+      >
+        <RotateCw className="w-5 h-5" />
+      </button>
+      <button
+        onClick={onToggleLock}
+        className={`w-10 h-10 border border-dark rounded-lg flex items-center justify-center transition-colors shadow-lg ${
+          isLocked
+            ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 hover:text-amber-300'
+            : 'bg-dark-secondary hover:bg-dark-tertiary text-slate-400 hover:text-slate-200'
+        }`}
+        title={isLocked ? "Unlock node movement" : "Lock node movement"}
+      >
+        {isLocked ? <Lock className="w-5 h-5" /> : <LockOpen className="w-5 h-5" />}
       </button>
 
       {/* Minimap button and content */}

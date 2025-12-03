@@ -110,9 +110,26 @@ export function useProjectIO() {
     input.click()
   }, [loadProject])
 
+  const clearProject = useCallback(() => {
+    if (window.confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+      // Clear all stores
+      csvStore.clearAllFiles()
+      graphStore.clearGraph()
+      templateStore.clearAllTemplates()
+      rulesStore.clearAllRules()
+
+      // Reset project metadata
+      projectStore.setProjectName('Untitled Project')
+      projectStore.setDescription('')
+
+      toast.success('Project cleared successfully')
+    }
+  }, [csvStore, graphStore, templateStore, rulesStore, projectStore])
+
   return {
     saveProject,
     loadProject,
     handleLoadFile,
+    clearProject,
   }
 }
