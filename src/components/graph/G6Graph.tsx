@@ -378,33 +378,39 @@ export function G6Graph() {
 
     const rect = canvas.getBoundingClientRect()
 
-    // Convert screen coordinates to canvas coordinates
-    let canvasX = e.clientX - rect.left
-    let canvasY = e.clientY - rect.top
+    // Get mouse position in screen space
+    let x = e.clientX - rect.left
+    let y = e.clientY - rect.top
 
-    // Apply rotation if needed (rotate back to graph space)
+    // Reverse the canvas transformations to get graph space coordinates
+    // Canvas transform order: translate(panOffset + center) -> rotate -> scale -> translate(-center)
+    // We need to reverse this: inverse of the above operations in reverse order
+
+    const centerX = canvas.width / 2
+    const centerY = canvas.height / 2
+
+    // Step 1: Inverse translate (remove panOffset + center)
+    x = x - panOffset.x - centerX
+    y = y - panOffset.y - centerY
+
+    // Step 2: Inverse rotate
     if (rotation !== 0) {
-      const centerX = canvas.width / 2
-      const centerY = canvas.height / 2
-
-      // Translate to origin
-      canvasX -= centerX
-      canvasY -= centerY
-
-      // Rotate (inverse rotation)
-      const cos = Math.cos(-rotation)
-      const sin = Math.sin(-rotation)
-      const rotatedX = canvasX * cos - canvasY * sin
-      const rotatedY = canvasX * sin + canvasY * cos
-
-      // Translate back
-      canvasX = rotatedX + centerX
-      canvasY = rotatedY + centerY
+      const rad = (rotation * Math.PI) / 180
+      const cos = Math.cos(-rad)
+      const sin = Math.sin(-rad)
+      const rotatedX = x * cos - y * sin
+      const rotatedY = x * sin + y * cos
+      x = rotatedX
+      y = rotatedY
     }
 
-    // Apply pan and zoom transformations
-    const x = (canvasX - panOffset.x) / zoom
-    const y = (canvasY - panOffset.y) / zoom
+    // Step 3: Inverse scale
+    x = x / zoom
+    y = y / zoom
+
+    // Step 4: Inverse translate (add center back)
+    x = x + centerX
+    y = y + centerY
 
     // If space key is pressed or middle mouse button, start panning
     if (e.button === 1 || e.shiftKey) {
