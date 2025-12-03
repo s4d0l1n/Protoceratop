@@ -1973,8 +1973,7 @@ export function G6Graph() {
           ctx.font = 'bold 11px sans-serif'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
-          const label = node.label.length > 14 ? node.label.substring(0, 14) + '...' : node.label
-          ctx.fillText(label, nodeX, y + nodeCardHeight - 15)
+          ctx.fillText(node.label, nodeX, y + nodeCardHeight - 15)
         })
       })
 
@@ -2214,8 +2213,7 @@ export function G6Graph() {
         ctx.font = '12px sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        const label = node.label.length > 15 ? node.label.substring(0, 15) + '...' : node.label
-        ctx.fillText(label, pos.x, pos.y + 8)
+        ctx.fillText(node.label, pos.x, pos.y + 8)
 
         // Render attributes from card template (already evaluated above)
         if (cardTemplate?.attributeDisplays && cardTemplate.attributeDisplays.length > 0) {
@@ -2247,13 +2245,12 @@ export function G6Graph() {
 
               // Build display text
               const displayText = `${prefix}${displayLabel}: ${attrValue}${suffix}`
-              const truncatedText = displayText.length > 20 ? displayText.substring(0, 20) + '...' : displayText
 
               ctx.fillStyle = color
               ctx.font = `${fontSize}px sans-serif`
               ctx.textAlign = 'center'
               ctx.textBaseline = 'top'
-              ctx.fillText(truncatedText, pos.x, yOffset)
+              ctx.fillText(displayText, pos.x, yOffset)
 
               yOffset += fontSize + 4
             }
@@ -2265,21 +2262,6 @@ export function G6Graph() {
             ctx.font = '9px sans-serif'
             ctx.fillText(`+${visibleAttrs.length - maxAttrsToShow} more`, pos.x, yOffset)
           }
-        } else {
-          // Fallback: Draw attribute count if no template
-          const attrCount = Object.keys(node.attributes).length
-          if (attrCount > 0) {
-            ctx.fillStyle = '#64748b'
-            ctx.font = '10px sans-serif'
-            ctx.fillText(`${attrCount} attrs`, pos.x, pos.y + 22)
-          }
-        }
-
-        // Draw stub indicator
-        if (node.isStub) {
-          ctx.fillStyle = '#94a3b8'
-          ctx.font = '9px sans-serif'
-          ctx.fillText('STUB', pos.x, pos.y + (cardTemplate ? 60 : 32))
         }
       })
 
@@ -2602,7 +2584,14 @@ interface GraphControlsProps {
 
 function GraphControls({ zoom, onZoomIn, onZoomOut, onReset }: GraphControlsProps) {
   return (
-    <div className="absolute bottom-6 right-4 flex flex-col gap-2">
+    <div className="absolute bottom-6 right-4 flex items-center gap-2">
+      {/* Zoom indicator */}
+      <div className="px-3 py-2 bg-dark-secondary/90 border border-dark rounded-lg text-sm text-slate-300">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">Zoom:</span>
+          <span className="font-medium">{(zoom * 100).toFixed(0)}%</span>
+        </div>
+      </div>
       <button
         onClick={onZoomIn}
         disabled={zoom >= 5}
@@ -2642,13 +2631,6 @@ function GraphControls({ zoom, onZoomIn, onZoomOut, onReset }: GraphControlsProp
           />
         </svg>
       </button>
-      {/* Zoom indicator */}
-      <div className="px-3 py-2 bg-dark-secondary/90 border border-dark rounded-lg text-sm text-slate-300">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Zoom:</span>
-          <span className="font-medium">{(zoom * 100).toFixed(0)}%</span>
-        </div>
-      </div>
     </div>
   )
 }
