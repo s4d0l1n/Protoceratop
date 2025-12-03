@@ -12,6 +12,7 @@ import { SearchFilterPanel } from '@/components/ui/SearchFilterPanel'
 import { RulesPanel } from '@/components/ui/RulesPanel'
 import { LayoutPanel } from '@/components/ui/LayoutPanel'
 import { GroupingPanel } from '@/components/ui/GroupingPanel'
+import { SettingsPanel } from '@/components/ui/SettingsPanel'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { G6Graph } from '@/components/graph/G6Graph'
 import { useUIStore } from '@/stores/uiStore'
@@ -175,6 +176,7 @@ function App() {
       <RulesPanel />
       <LayoutPanel />
       <GroupingPanel />
+      <SettingsPanel />
 
       {/* Global Loading Spinner */}
       <LoadingSpinner />
