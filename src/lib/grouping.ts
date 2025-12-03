@@ -214,7 +214,7 @@ export function getVisibleNodesWithGrouping(
     if (metaNode.collapsed) {
       metaNode.childNodeIds.forEach((id) => {
         // Don't hide nodes that match search filter
-        if (!hasActiveFilter || !filteredNodeIds.has(id)) {
+        if (!hasActiveFilter || !filteredNodeIds!.has(id)) {
           hiddenNodeIds.add(id)
         }
       })

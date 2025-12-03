@@ -37,7 +37,7 @@ function fontTemplateToStyle(template: FontTemplate | undefined): React.CSSPrope
  * Shows individual node details or all combined nodes when a meta-node is selected
  */
 export function NodeDetailPanel() {
-  const { selectedNodeId, selectedMetaNodeId, setSelectedNodeId, setSelectedMetaNodeId } = useUIStore()
+  const { selectedNodeId, selectedMetaNodeId, previousSelection, setSelectedNodeId, setSelectedMetaNodeId, goBack } = useUIStore()
   const { nodes, getNodeById, getConnectedEdges, getMetaNodeById, toggleMetaNodeCollapse } = useGraphStore()
   const { styleRules } = useRulesStore()
   const { getFontTemplateById } = useTemplateStore()
@@ -124,15 +124,27 @@ export function NodeDetailPanel() {
               </>
             )}
           </div>
-          <button
-            onClick={() => {
-              setSelectedNodeId(null)
-              setSelectedMetaNodeId(null)
-            }}
-            className="p-1.5 rounded-lg hover:bg-dark-secondary text-slate-400 hover:text-slate-200 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Back button - only show if there's a previous selection */}
+            {previousSelection && (previousSelection.nodeId || previousSelection.metaNodeId) && (
+              <button
+                onClick={goBack}
+                className="p-1.5 rounded-lg hover:bg-dark-secondary text-slate-400 hover:text-slate-200 transition-colors"
+                title="Go back to previous selection"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setSelectedNodeId(null)
+                setSelectedMetaNodeId(null)
+              }}
+              className="p-1.5 rounded-lg hover:bg-dark-secondary text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       )}
 

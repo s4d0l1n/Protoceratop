@@ -142,15 +142,18 @@ export function G6Graph() {
   const visibleNodes = useMemo(() => {
     let filtered = nodes
 
+    // Check if there's an actual filter (not just all nodes)
+    const hasRealFilter = filteredNodeIds && filteredNodeIds.size > 0 && filteredNodeIds.size < nodes.length
+
     // Apply grouping (hide nodes in collapsed groups, unless they match search)
     if (metaNodes.length > 0) {
-      const activeFilter = filteredNodeIds && filteredNodeIds.size > 0 ? filteredNodeIds : undefined
+      const activeFilter = hasRealFilter ? filteredNodeIds : undefined
       filtered = getVisibleNodesWithGrouping(filtered, metaNodes, activeFilter)
     }
 
     // If search is active, filter to only matching nodes
-    if (filteredNodeIds && filteredNodeIds.size > 0) {
-      filtered = filtered.filter((node) => filteredNodeIds.has(node.id))
+    if (hasRealFilter) {
+      filtered = filtered.filter((node) => filteredNodeIds!.has(node.id))
     }
 
     return filtered

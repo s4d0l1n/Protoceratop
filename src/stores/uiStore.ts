@@ -13,6 +13,7 @@ interface UIState {
   // Selection state
   selectedNodeId: string | null
   selectedMetaNodeId: string | null
+  previousSelection: { nodeId: string | null; metaNodeId: string | null } | null
   selectedEdgeIds: string[]
   selectedNodeIds: Set<string> // Multi-selection for arrangement tools
 
@@ -38,6 +39,7 @@ interface UIState {
   setActivePanel: (panelId: string | null) => void
   setSelectedNodeId: (nodeId: string | null) => void
   setSelectedMetaNodeId: (metaNodeId: string | null) => void
+  goBack: () => void
   setSelectedEdgeIds: (edgeIds: string[]) => void
   setSelectedNodeIds: (nodeIds: Set<string>) => void
   toggleNodeSelection: (nodeId: string) => void
@@ -59,6 +61,7 @@ export const useUIStore = create<UIState>((set) => ({
   activePanel: null,
   selectedNodeId: null,
   selectedMetaNodeId: null,
+  previousSelection: null,
   selectedEdgeIds: [],
   selectedNodeIds: new Set(),
   filteredNodeIds: null,
@@ -77,10 +80,28 @@ export const useUIStore = create<UIState>((set) => ({
     set({ activePanel: panelId }),
 
   setSelectedNodeId: (nodeId) =>
-    set({ selectedNodeId: nodeId, selectedMetaNodeId: null }),
+    set((state) => ({
+      previousSelection: { nodeId: state.selectedNodeId, metaNodeId: state.selectedMetaNodeId },
+      selectedNodeId: nodeId,
+      selectedMetaNodeId: null
+    })),
 
   setSelectedMetaNodeId: (metaNodeId) =>
-    set({ selectedMetaNodeId: metaNodeId, selectedNodeId: null }),
+    set((state) => ({
+      previousSelection: { nodeId: state.selectedNodeId, metaNodeId: state.selectedMetaNodeId },
+      selectedMetaNodeId: metaNodeId,
+      selectedNodeId: null
+    })),
+
+  goBack: () =>
+    set((state) => {
+      if (!state.previousSelection) return state
+      return {
+        selectedNodeId: state.previousSelection.nodeId,
+        selectedMetaNodeId: state.previousSelection.metaNodeId,
+        previousSelection: null
+      }
+    }),
 
   setSelectedEdgeIds: (edgeIds) =>
     set({ selectedEdgeIds: edgeIds }),
