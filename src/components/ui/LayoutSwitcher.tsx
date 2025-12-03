@@ -2,21 +2,7 @@ import { useState } from 'react'
 import { Network, ChevronDown, Zap, FolderOpen } from 'lucide-react'
 import { LayoutPresets } from '@/components/ui/LayoutPresets'
 
-export type LayoutType =
-  | 'grid'
-  | 'circle'
-  | 'concentric'
-  | 'force'
-  | 'radial'
-  | 'hierarchical'
-  | 'tree'
-  | 'fruchterman'
-  | 'kamadaKawai'
-  | 'spectral'
-  | 'random'
-  | 'timeline'
-  | 'sugiyama'
-  | 'clusterIsland'
+export type LayoutType = 'bigbang'
 
 interface LayoutInfo {
   id: LayoutType
@@ -26,20 +12,7 @@ interface LayoutInfo {
 }
 
 const LAYOUTS: LayoutInfo[] = [
-  { id: 'grid', name: 'Grid', description: 'Organized grid layout', icon: '⊞' },
-  { id: 'circle', name: 'Circle', description: 'Circular arrangement', icon: '○' },
-  { id: 'concentric', name: 'Concentric', description: 'Concentric circles', icon: '◎' },
-  { id: 'force', name: 'Force', description: 'Force-directed layout', icon: '⚡' },
-  { id: 'radial', name: 'Radial', description: 'Radial tree layout', icon: '✳' },
-  { id: 'hierarchical', name: 'Hierarchical', description: 'Top-down hierarchy', icon: '⊤' },
-  { id: 'tree', name: 'Tree', description: 'Tree structure', icon: '🌳' },
-  { id: 'fruchterman', name: 'Fruchterman-Reingold', description: 'Force-based algorithm', icon: '⚛' },
-  { id: 'kamadaKawai', name: 'Kamada-Kawai', description: 'Spring model layout', icon: '⊕' },
-  { id: 'spectral', name: 'Spectral', description: 'Eigenvalue-based layout', icon: '◈' },
-  { id: 'random', name: 'Random', description: 'Random positions', icon: '⁂' },
-  { id: 'timeline', name: 'Timeline', description: 'Chronological layout', icon: '━' },
-  { id: 'sugiyama', name: 'Sugiyama', description: 'Layered directed graph', icon: '≡' },
-  { id: 'clusterIsland', name: 'Cluster Island', description: 'Grouped clusters', icon: '⊛' },
+  { id: 'bigbang', name: 'Big Bang', description: 'Physics-based force layout with dynamic interactions', icon: '💥' },
 ]
 
 interface LayoutSwitcherProps {
@@ -53,7 +26,7 @@ interface LayoutSwitcherProps {
  * Allows users to switch between different graph layouts
  */
 export function LayoutSwitcher({
-  currentLayout = 'grid',
+  currentLayout = 'bigbang',
   onLayoutChange,
   onAutoLayout
 }: LayoutSwitcherProps) {

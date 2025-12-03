@@ -2486,37 +2486,6 @@ export function G6Graph() {
         </div>
       )}
 
-      {/* Minimap Panel */}
-      {nodes.length > 0 && (
-        <div className="absolute top-64 right-4">
-          <button
-            onClick={() => setShowMinimap(!showMinimap)}
-            className="group px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-colors flex items-center gap-2"
-            title="Minimap"
-          >
-            <MapIcon className="w-4 h-4 flex-shrink-0" />
-            <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Minimap</span>
-          </button>
-
-          {/* Minimap content */}
-          {showMinimap && canvasRef.current && nodePositions.size > 0 && (
-            <div className="absolute top-0 right-16 bg-dark-secondary/90 border border-dark rounded-lg p-2 min-w-[200px]">
-              <Minimap
-                nodePositions={nodePositions}
-                metaNodePositions={metaNodePositions}
-                panOffset={panOffset}
-                zoom={zoom}
-                canvasWidth={canvasRef.current.offsetWidth}
-                canvasHeight={canvasRef.current.offsetHeight}
-                onPanChange={(offset) => {
-                  setPanOffset(offset)
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Graph Controls */}
       <GraphControls
         zoom={zoom}
@@ -2568,6 +2537,23 @@ export function G6Graph() {
           setZoom(1)
           setPanOffset({ x: 0, y: 0 })
         }}
+        showMinimap={showMinimap}
+        onToggleMinimap={() => setShowMinimap(!showMinimap)}
+        minimapContent={
+          canvasRef.current && nodePositions.size > 0 ? (
+            <Minimap
+              nodePositions={nodePositions}
+              metaNodePositions={metaNodePositions}
+              panOffset={panOffset}
+              zoom={zoom}
+              canvasWidth={canvasRef.current.offsetWidth}
+              canvasHeight={canvasRef.current.offsetHeight}
+              onPanChange={(offset) => {
+                setPanOffset(offset)
+              }}
+            />
+          ) : undefined
+        }
       />
 
 
@@ -2583,9 +2569,12 @@ interface GraphControlsProps {
   onZoomIn: () => void
   onZoomOut: () => void
   onReset: () => void
+  showMinimap: boolean
+  onToggleMinimap: () => void
+  minimapContent?: React.ReactNode
 }
 
-function GraphControls({ zoom, onZoomIn, onZoomOut, onReset }: GraphControlsProps) {
+function GraphControls({ zoom, onZoomIn, onZoomOut, onReset, showMinimap, onToggleMinimap, minimapContent }: GraphControlsProps) {
   return (
     <div className="absolute bottom-6 right-4 flex items-center gap-2">
       {/* Zoom indicator */}
@@ -2634,6 +2623,24 @@ function GraphControls({ zoom, onZoomIn, onZoomOut, onReset }: GraphControlsProp
           />
         </svg>
       </button>
+
+      {/* Minimap button and content */}
+      <div className="relative">
+        <button
+          onClick={onToggleMinimap}
+          className="w-10 h-10 bg-dark-secondary hover:bg-dark-tertiary border border-dark rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors shadow-lg"
+          title="Toggle Minimap"
+        >
+          <MapIcon className="w-5 h-5" />
+        </button>
+
+        {/* Minimap content appears above the button */}
+        {showMinimap && minimapContent && (
+          <div className="absolute bottom-12 right-0 bg-dark-secondary/90 border border-dark rounded-lg p-2 min-w-[200px]">
+            {minimapContent}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

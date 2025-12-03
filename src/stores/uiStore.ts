@@ -70,7 +70,7 @@ export const useUIStore = create<UIState>((set) => ({
   loadingMessage: '',
   zoom: 1,
   panOffset: { x: 0, y: 0 },
-  currentLayout: 'grid',
+  currentLayout: 'bigbang',
 
   // Actions
   toggleSidebar: () =>

@@ -16,20 +16,7 @@ interface LayoutInfo {
 }
 
 const LAYOUTS: LayoutInfo[] = [
-  { id: 'grid', name: 'Grid', description: 'Organized grid layout', icon: '⊞' },
-  { id: 'circle', name: 'Circle', description: 'Circular arrangement', icon: '○' },
-  { id: 'concentric', name: 'Concentric', description: 'Concentric circles', icon: '◎' },
-  { id: 'force', name: 'Force', description: 'Force-directed layout', icon: '⚡' },
-  { id: 'radial', name: 'Radial', description: 'Radial tree layout', icon: '✳' },
-  { id: 'hierarchical', name: 'Hierarchical', description: 'Top-down hierarchy', icon: '⊤' },
-  { id: 'tree', name: 'Tree', description: 'Tree structure', icon: '🌳' },
-  { id: 'fruchterman', name: 'Fruchterman-Reingold', description: 'Force-based algorithm', icon: '⚛' },
-  { id: 'kamadaKawai', name: 'Kamada-Kawai', description: 'Spring model layout', icon: '⊕' },
-  { id: 'spectral', name: 'Spectral', description: 'Eigenvalue-based layout', icon: '◈' },
-  { id: 'random', name: 'Random', description: 'Random positions', icon: '⁂' },
-  { id: 'timeline', name: 'Timeline', description: 'Chronological layout', icon: '━' },
-  { id: 'sugiyama', name: 'Sugiyama', description: 'Layered directed graph', icon: '≡' },
-  { id: 'clusterIsland', name: 'Cluster Island', description: 'Grouped clusters', icon: '⊛' },
+  { id: 'bigbang', name: 'Big Bang', description: 'Physics-based force layout with dynamic interactions', icon: '💥' },
 ]
 
 /**
@@ -62,7 +49,7 @@ export function LayoutPanel({ currentLayout = 'grid', onLayoutChange, onAutoLayo
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
       <div className="bg-dark-secondary border border-dark rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-dark">
-          <h2 className="text-xl font-bold text-slate-100">Graph Layout</h2>
+          <h2 className="text-xl font-bold text-slate-100">Choose Layout</h2>
           <button
             onClick={handleClose}
             className="p-1 hover:bg-dark rounded transition-colors"
@@ -91,8 +78,8 @@ export function LayoutPanel({ currentLayout = 'grid', onLayoutChange, onAutoLayo
 
           {/* Layout Selection */}
           <div>
-            <h3 className="text-sm font-medium text-slate-300 mb-3">Choose Layout Algorithm</h3>
-            <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+            <h3 className="text-sm font-medium text-slate-300 mb-3">Select Layout</h3>
+            <div className="grid grid-cols-1 gap-2">
               {LAYOUTS.map((layout) => (
                 <button
                   key={layout.id}
