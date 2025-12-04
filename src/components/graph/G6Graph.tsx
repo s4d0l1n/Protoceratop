@@ -227,7 +227,14 @@ export function G6Graph() {
     // Initialize WebGL renderer if not already created
     if (!webglRendererRef.current) {
       try {
-        webglRendererRef.current = new WebGLRenderer(canvasRef.current)
+        const renderer = new WebGLRenderer(canvasRef.current)
+        if (!renderer.isSupported()) {
+          console.warn('WebGL not supported on this device')
+          toast({ message: 'WebGL not supported. Using Canvas2D.', type: 'warning' })
+          return
+        }
+        webglRendererRef.current = renderer
+        console.log('WebGL renderer initialized successfully')
       } catch (error) {
         console.error('Failed to initialize WebGL renderer:', error)
         toast({ message: 'WebGL initialization failed. Falling back to Canvas2D.', type: 'error' })
@@ -967,8 +974,13 @@ export function G6Graph() {
     if (!canvasRef.current || nodes.length === 0 || nodePositions.size === 0) return
 
     const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+
+    // Only get 2D context if not using WebGL
+    let ctx: CanvasRenderingContext2D | null = null
+    if (!useWebGL) {
+      ctx = canvas.getContext('2d')
+      if (!ctx) return
+    }
 
     // Cancel any existing animation frame
     if (animationRef.current) {
@@ -1564,8 +1576,13 @@ export function G6Graph() {
       // ===================================================================
       // WEBGL RENDERING PATH
       // ===================================================================
-      if (useWebGL && webglRendererRef.current) {
+      if (useWebGL && webglRendererRef.current && webglRendererRef.current.isSupported()) {
         const webgl = webglRendererRef.current
+
+        // Debug: Check if we have nodes to render
+        if (nodePositions.size === 0) {
+          console.warn('WebGL render: No node positions yet')
+        }
 
         // Begin frame and clear
         webgl.clear()
@@ -1721,6 +1738,8 @@ export function G6Graph() {
       // ===================================================================
       // CANVAS 2D RENDERING PATH (FALLBACK)
       // ===================================================================
+
+      if (!ctx) return // Safety check - ctx only exists when not using WebGL
 
       // Clear canvas
       ctx.fillStyle = '#0f172a'
