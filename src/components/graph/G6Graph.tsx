@@ -1663,12 +1663,16 @@ export function G6Graph() {
             webgl.batchLine(pos.x - cardWidth / 2, pos.y + cardHeight / 2, pos.x - cardWidth / 2, pos.y - cardHeight / 2, hexToRGBA(bColor, 1), borderWidth)
           }
 
+          // TODO: Temporarily disable text in WebGL for performance
+          // WebGL text rendering needs optimization (texture atlas or proper batching)
           // Draw node label
-          const labelColor = cardTemplate?.labelColor || '#e2e8f0'
-          webgl.batchText(node.label, pos.x, pos.y - 10, 'bold 14px sans-serif', labelColor, cardWidth - 10)
+          // const labelColor = cardTemplate?.labelColor || '#e2e8f0'
+          // webgl.batchText(node.label, pos.x, pos.y, 'bold 14px sans-serif', labelColor, cardWidth - 10)
 
+          // TODO: WebGL text rendering is currently slow due to separate draw calls per text
+          // Skip attributes in WebGL mode for better performance
           // Draw attributes if template has them
-          if (cardTemplate?.attributeDisplays) {
+          if (false && cardTemplate?.attributeDisplays) {
             let yOffset = 10
             const visibleAttrs = cardTemplate.attributeDisplays
               .filter((attrDisplay) => attrDisplay.visible)
@@ -1719,12 +1723,13 @@ export function G6Graph() {
           webgl.batchLine(pos.x + metaWidth / 2, pos.y + metaHeight / 2, pos.x - metaWidth / 2, pos.y + metaHeight / 2, hexToRGBA(borderColor, 1), borderWidth)
           webgl.batchLine(pos.x - metaWidth / 2, pos.y + metaHeight / 2, pos.x - metaWidth / 2, pos.y - metaHeight / 2, hexToRGBA(borderColor, 1), borderWidth)
 
+          // TODO: Temporarily disable text in WebGL for performance
           // Label
-          webgl.batchText(metaNode.label, pos.x, pos.y - 20, 'bold 16px sans-serif', '#e2e8f0', metaWidth - 20)
+          // webgl.batchText(metaNode.label, pos.x, pos.y - 20, 'bold 16px sans-serif', '#e2e8f0', metaWidth - 20)
 
           // Node count
-          const nodeCount = metaNode.nodeIds.length
-          webgl.batchText(`${nodeCount} nodes`, pos.x, pos.y + 10, '12px sans-serif', '#94a3b8', metaWidth - 20)
+          // const nodeCount = metaNode.nodeIds.length
+          // webgl.batchText(`${nodeCount} nodes`, pos.x, pos.y + 10, '12px sans-serif', '#94a3b8', metaWidth - 20)
         })
 
         // End frame and render to GPU
