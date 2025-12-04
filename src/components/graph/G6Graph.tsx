@@ -1568,6 +1568,7 @@ export function G6Graph() {
         const webgl = webglRendererRef.current
 
         // Begin frame and clear
+        webgl.clear()
         webgl.beginFrame()
         webgl.setTransform(zoom, panOffset.x, panOffset.y, rotation)
 
@@ -1631,10 +1632,10 @@ export function G6Graph() {
           if (shape === 'circle') {
             const radius = Math.min(cardWidth, cardHeight) / 2
             webgl.batchCircle(pos.x, pos.y, radius, hexToRGBA(bgColor, 1), 32)
-            webgl.batchCircle(pos.x, pos.y, radius - 2, hexToRGBA(isSelected ? '#22d3ee' : borderColor, 1), 32, true)
+            webgl.batchCircle(pos.x, pos.y, radius - 2, hexToRGBA(isSelected ? '#22d3ee' : borderColor, 1), 32)
           } else {
-            // Rectangle (default)
-            webgl.batchRect(pos.x - cardWidth / 2, pos.y - cardHeight / 2, cardWidth, cardHeight, hexToRGBA(bgColor, 1))
+            // Rectangle (default) - batchRect expects center point
+            webgl.batchRect(pos.x, pos.y, cardWidth, cardHeight, hexToRGBA(bgColor, 1))
             // Border
             const borderWidth = isSelected ? 3 : (cardTemplate?.borderWidth || 2)
             const bColor = isSelected ? '#22d3ee' : borderColor
@@ -1647,7 +1648,7 @@ export function G6Graph() {
 
           // Draw node label
           const labelColor = cardTemplate?.labelColor || '#e2e8f0'
-          webgl.batchText(node.label, pos.x, pos.y - 10, 'bold 14px sans-serif', hexToRGBA(labelColor, 1), cardWidth - 10)
+          webgl.batchText(node.label, pos.x, pos.y - 10, 'bold 14px sans-serif', labelColor, cardWidth - 10)
 
           // Draw attributes if template has them
           if (cardTemplate?.attributeDisplays) {
@@ -1673,7 +1674,7 @@ export function G6Graph() {
                 const suffix = attrDisplay.suffix || ''
                 const fullText = `${prefix}${labelText}: ${attrValue}${suffix}`
 
-                webgl.batchText(fullText, pos.x, pos.y + yOffset, `${fontSize}px sans-serif`, hexToRGBA(attrColor, 1), cardWidth - 10)
+                webgl.batchText(fullText, pos.x, pos.y + yOffset, `${fontSize}px sans-serif`, attrColor, cardWidth - 10)
                 yOffset += fontSize + 4
               }
             })
@@ -1693,7 +1694,7 @@ export function G6Graph() {
           const metaWidth = 150
           const metaHeight = 100
 
-          webgl.batchRect(pos.x - metaWidth / 2, pos.y - metaHeight / 2, metaWidth, metaHeight, hexToRGBA(bgColor, 0.9))
+          webgl.batchRect(pos.x, pos.y, metaWidth, metaHeight, hexToRGBA(bgColor, 0.9))
           // Border
           const borderWidth = isSelected ? 3 : 2
           webgl.batchLine(pos.x - metaWidth / 2, pos.y - metaHeight / 2, pos.x + metaWidth / 2, pos.y - metaHeight / 2, hexToRGBA(borderColor, 1), borderWidth)
@@ -1702,11 +1703,11 @@ export function G6Graph() {
           webgl.batchLine(pos.x - metaWidth / 2, pos.y + metaHeight / 2, pos.x - metaWidth / 2, pos.y - metaHeight / 2, hexToRGBA(borderColor, 1), borderWidth)
 
           // Label
-          webgl.batchText(metaNode.label, pos.x, pos.y - 20, 'bold 16px sans-serif', hexToRGBA('#e2e8f0', 1), metaWidth - 20)
+          webgl.batchText(metaNode.label, pos.x, pos.y - 20, 'bold 16px sans-serif', '#e2e8f0', metaWidth - 20)
 
           // Node count
           const nodeCount = metaNode.nodeIds.length
-          webgl.batchText(`${nodeCount} nodes`, pos.x, pos.y + 10, '12px sans-serif', hexToRGBA('#94a3b8', 1), metaWidth - 20)
+          webgl.batchText(`${nodeCount} nodes`, pos.x, pos.y + 10, '12px sans-serif', '#94a3b8', metaWidth - 20)
         })
 
         // End frame and render to GPU
