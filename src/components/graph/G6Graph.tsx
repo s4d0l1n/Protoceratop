@@ -371,136 +371,120 @@ export function G6Graph() {
     setMaxIterations(prev => prev + 100)
   }, [])
 
+  import { findShortestPath } from '@/lib/graph-algorithms'
+
+// ... (rest of the imports)
+
+// ...
+
+export function G6Graph() {
+  // ... (existing state)
+  const [highlightedEdgeIds, setHighlightedEdgeIds] = useState<Set<string>>(new Set())
+
+  // ... (existing hooks)
+
+  // Effect to calculate and highlight shortest paths from stubs to the selected node
+  useEffect(() => {
+    if (selectedNodeId) {
+      const stubNodes = nodes.filter(n => n.isStub);
+      const allPaths = new Set<string>();
+
+      stubNodes.forEach(stubNode => {
+        const path = findShortestPath(stubNode.id, selectedNodeId, nodes, edges);
+        path.forEach(edgeId => allPaths.add(edgeId));
+      });
+
+      setHighlightedEdgeIds(allPaths);
+    } else {
+      setHighlightedEdgeIds(new Set()); // Clear highlights when no node is selected
+    }
+  }, [selectedNodeId, nodes, edges]);
+
   // Mouse event handlers for dragging and panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect()
+    const rect = canvas.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
 
-    // Get mouse position in screen space
-    let x = e.clientX - rect.left
-    let y = e.clientY - rect.top
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
 
-    // Reverse the canvas transformations to get graph space coordinates
-    // Canvas transform order: translate(panOffset + center) -> rotate -> scale -> translate(-center)
-    // We need to reverse this: inverse of the above operations in reverse order
+    x = x - panOffset.x - centerX;
+    y = y - panOffset.y - centerY;
 
-    const centerX = canvas.width / 2
-    const centerY = canvas.height / 2
-
-    // Step 1: Inverse translate (remove panOffset + center)
-    x = x - panOffset.x - centerX
-    y = y - panOffset.y - centerY
-
-    // Step 2: Inverse rotate
     if (rotation !== 0) {
-      const rad = (rotation * Math.PI) / 180
-      const cos = Math.cos(-rad)
-      const sin = Math.sin(-rad)
-      const rotatedX = x * cos - y * sin
-      const rotatedY = x * sin + y * cos
-      x = rotatedX
-      y = rotatedY
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(-rad);
+      const sin = Math.sin(-rad);
+      const rotatedX = x * cos - y * sin;
+      const rotatedY = x * sin + y * cos;
+      x = rotatedX;
+      y = rotatedY;
     }
 
-    // Step 3: Inverse scale
-    x = x / zoom
-    y = y / zoom
+    x /= zoom;
+    y /= zoom;
+    x += centerX;
+    y += centerY;
 
-    // Step 4: Inverse translate (add center back)
-    x = x + centerX
-    y = y + centerY
-
-    // If space key is pressed or middle mouse button, start panning
     if (e.button === 1 || e.shiftKey) {
-      setIsPanning(true)
-      setPanStart({ x: e.clientX, y: e.clientY })
-      e.preventDefault()
-      return
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+      return;
     }
 
-    // Check if mouse is over a meta-node first (they're larger)
-    for (const [metaNodeId, pos] of metaNodePositions.entries()) {
-      const metaNode = visibleMetaNodes.find((mn) => mn.id === metaNodeId)
-      if (!metaNode) continue
-
-      if (metaNode.collapsed) {
-        // Collapsed meta-node - check full bounding box
-        const nodeCount = metaNode.childNodeIds.length
-        const cols = Math.min(6, Math.ceil(Math.sqrt(nodeCount * 1.5))) // Wider rectangles
-        const rows = Math.ceil(nodeCount / cols)
-        const cardWidth = 120
-        const cardHeight = 60
-        const spacing = 15
-        const padding = 25
-        const headerHeight = 0 // No header
-        const containerWidth = Math.max(200, cols * (cardWidth + spacing) - spacing + padding * 2)
-        const containerHeight = rows * (cardHeight + spacing) - spacing + padding * 2 + headerHeight
-
-        const containerX = pos.x - containerWidth / 2
-        const containerY = pos.y - containerHeight / 2
-
-        // Check if mouse is within bounding box
-        if (
-          x >= containerX &&
-          x <= containerX + containerWidth &&
-          y >= containerY &&
-          y <= containerY + containerHeight
-        ) {
-          // If locked, don't allow node dragging - fall through to panning
-          if (!isLocked) {
-            setDraggedNodeId(metaNodeId)
-            setDragOffset({ x: x - pos.x, y: y - pos.y })
-            return
-          }
+    // Hit detection logic for nodes
+    for (const [nodeId, pos] of Array.from(nodePositions.entries()).reverse()) { // Reverse to check top nodes first
+      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
+      if (distance < 60) { // Hit radius
+        if (isLocked) {
+          // If locked, just select the node and do nothing else.
+          setSelectedNodeId(nodeId);
+        } else {
+          // If not locked, prepare for dragging.
+          setDraggedNodeId(nodeId);
+          setDragOffset({ x: x - pos.x, y: y - pos.y });
         }
-      } else {
-        // Expanded meta-node - check badge area
-        const badgeWidth = 140
-        const badgeHeight = 30
-        const badgeX = pos.x - badgeWidth / 2
-        const badgeY = pos.y - badgeHeight / 2
-
-        if (
-          x >= badgeX &&
-          x <= badgeX + badgeWidth &&
-          y >= badgeY &&
-          y <= badgeY + badgeHeight
-        ) {
-          // If locked, don't allow node dragging - fall through to panning
-          if (!isLocked) {
-            setDraggedNodeId(metaNodeId)
-            setDragOffset({ x: x - pos.x, y: y - pos.y })
-            return
-          }
-        }
+        return; // Stop processing, we've handled the click/drag.
       }
     }
 
-    // Check if mouse is over a regular node (skip nodes inside collapsed meta-nodes)
-    for (const [nodeId, pos] of nodePositions.entries()) {
-      // Skip if this node is inside a collapsed meta-node
-      const isInsideCollapsedMetaNode = metaNodes.some(
-        (mn) => mn.collapsed && mn.childNodeIds.includes(nodeId)
-      )
-      if (isInsideCollapsedMetaNode) continue
+    // If we reach here, no node was clicked. Start panning.
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+  }, [nodePositions, metaNodePositions, panOffset, zoom, rotation, isLocked, visibleMetaNodes, metaNodes, setSelectedNodeId]);
 
-      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2)
-      if (distance < 60) { // Hit radius for card nodes
-        // If locked, don't allow node dragging - fall through to panning
-        if (!isLocked) {
-          setDraggedNodeId(nodeId)
-          setDragOffset({ x: x - pos.x, y: y - pos.y })
-          return
-        }
+  // ... (handleMouseMove and other functions remain largely the same)
+
+  // In the main render useEffect:
+  useEffect(() => {
+    // ... (inside the render loop)
+    
+    // EDGE RENDERING LOGIC
+    transformedEdges.forEach((transformedEdge) => {
+      // ... (existing edge rendering setup)
+      if (sourcePos && targetPos) {
+        // ... (rule evaluation)
+        const isHighlighted = highlightedEdgeIds.has(edge.id);
+
+        // Apply template or use defaults
+        const edgeColor = isHighlighted ? '#22d3ee' : (template?.color || '#475569');
+        const edgeWidth = isHighlighted ? 4 : (template?.width || 2);
+        const edgeOpacity = isHighlighted ? 1 : (template?.opacity ?? 1);
+
+        // ... (rest of the edge drawing logic using these new variables)
       }
-    }
+    });
 
-    // If not over a node (or locked and clicked on node), start panning
-    setIsPanning(true)
-    setPanStart({ x: e.clientX, y: e.clientY })
-  }, [nodePositions, metaNodePositions, panOffset, zoom, rotation, isLocked, visibleMetaNodes, metaNodes])
+    // ... (rest of the render function)
+  }, [/* all the many dependencies */, highlightedEdgeIds]);
+  
+  // ... (the rest of the G6Graph component)
+}
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -688,41 +672,31 @@ export function G6Graph() {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
 
-      // More granular zoom: smaller steps for smoother zooming
-      const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05 // 5% per scroll
-
-      // Calculate mouse position in canvas coordinates
       const rect = canvas.getBoundingClientRect()
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
 
-      setZoom((prevZoom) => {
-        const newZoom = Math.max(0.1, Math.min(5, prevZoom * zoomFactor))
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+      const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.1), 5)
 
-        // Use setPanOffset callback to get current panOffset value
-        setPanOffset((currentPanOffset) => {
-          // Calculate the point in graph space that the mouse is over (before zoom)
-          const graphX = (mouseX - currentPanOffset.x) / prevZoom
-          const graphY = (mouseY - currentPanOffset.y) / prevZoom
+      // The graph coordinate that is under the mouse
+      const graphX = (mouseX - panOffset.x) / zoom
+      const graphY = (mouseY - panOffset.y) / zoom
 
-          // Calculate new pan offset to keep that point under the mouse (after zoom)
-          const newPanX = mouseX - graphX * newZoom
-          const newPanY = mouseY - graphY * newZoom
+      // The new pan offset that keeps the graph coordinate under the mouse
+      const newPanX = mouseX - graphX * newZoom
+      const newPanY = mouseY - graphY * newZoom
 
-          return { x: newPanX, y: newPanY }
-        })
-
-        return newZoom
-      })
+      setZoom(newZoom)
+      setPanOffset({ x: newPanX, y: newPanY })
     }
 
-    // Add event listener with passive: false to allow preventDefault
     canvas.addEventListener('wheel', handleWheel, { passive: false })
 
     return () => {
       canvas.removeEventListener('wheel', handleWheel)
     }
-  }, []) // Empty deps - event listener only registered once
+  }, [zoom, panOffset])
 
   // Initialize node positions with memoized layout calculation
   useEffect(() => {
