@@ -111,6 +111,15 @@ export function G6Graph() {
   const [targetRotation, setTargetRotation] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
 
+  // Highlight edge customization
+  const [highlightEdgeSettings, setHighlightEdgeSettings] = useState({
+    width: 8,
+    color: '#22d3ee',
+    colorFade: true,
+    sizeFade: false,
+    animation: false,
+  })
+
   // Function to calculate hulls from current node positions (parent-leaf clustering)
   const calculateHullsFromPositions = useCallback((
     currentPositions: Map<string, NodePosition>
@@ -1705,18 +1714,27 @@ export function G6Graph() {
           // Check if this edge is highlighted (shortest path from selected node to non-leaf nodes)
           const isHighlighted = highlightedEdgeIds.has(edge.id)
 
-          // Calculate opacity based on distance from selected node (gradient effect)
+          // Calculate opacity and width based on distance from selected node (gradient effect)
           let highlightOpacity = 1
+          let highlightWidth = highlightEdgeSettings.width
           if (isHighlighted) {
             const distance = edgeDistances.get(edge.id) || 1
-            // Fade from 1.0 (distance 1) to 0.3 (distance 5+)
-            // Formula: opacity = 1.0 - (distance - 1) * 0.15
-            highlightOpacity = Math.max(0.3, 1.0 - (distance - 1) * 0.15)
+
+            // Color fade: Fade from 1.0 (distance 1) to 0.3 (distance 5+)
+            if (highlightEdgeSettings.colorFade) {
+              highlightOpacity = Math.max(0.3, 1.0 - (distance - 1) * 0.15)
+            }
+
+            // Size fade: Fade from full width (distance 1) to half width (distance 5+)
+            if (highlightEdgeSettings.sizeFade) {
+              const fadeFactor = Math.max(0.5, 1.0 - (distance - 1) * 0.1)
+              highlightWidth = highlightEdgeSettings.width * fadeFactor
+            }
           }
 
           // Apply template or use defaults, with highlighting override
-          const edgeColor = isHighlighted ? '#22d3ee' : (template?.color || '#475569')
-          const edgeWidth = isHighlighted ? 4 : (template?.width || 2)
+          const edgeColor = isHighlighted ? highlightEdgeSettings.color : (template?.color || '#475569')
+          const edgeWidth = isHighlighted ? highlightWidth : (template?.width || 2)
           const edgeOpacity = isHighlighted ? highlightOpacity : (template?.opacity ?? 1)
           const edgeStyle = template?.style || 'solid'
           const lineType = template?.lineType || 'straight'
@@ -1725,12 +1743,19 @@ export function G6Graph() {
           const edgeLabel = template?.label || edge.label
 
           // Set line dash array based on style
-          if (edgeStyle === 'dashed') {
+          if (isHighlighted && highlightEdgeSettings.animation) {
+            // Animated dashed line for flow effect
+            ctx.setLineDash([20, 10])
+            ctx.lineDashOffset = -animationTime * 2 // Moves the dash pattern
+          } else if (edgeStyle === 'dashed') {
             ctx.setLineDash([10, 5])
+            ctx.lineDashOffset = 0
           } else if (edgeStyle === 'dotted') {
             ctx.setLineDash([2, 4])
+            ctx.lineDashOffset = 0
           } else {
             ctx.setLineDash([])
+            ctx.lineDashOffset = 0
           }
 
           // Draw edge line based on line type
@@ -2492,164 +2517,120 @@ export function G6Graph() {
           <button
             onClick={() => setShowPhysicsControls(!showPhysicsControls)}
             className="group px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-colors flex items-center gap-2"
-            title="Physics Parameters"
+            title="Highlight Edge Settings"
           >
             <Settings className="w-4 h-4 flex-shrink-0" />
-            <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Physics</span>
-            {iterationCount < maxIterations && (
-              <span className="flex-shrink-0 w-2 h-2 bg-green-400 rounded-full animate-pulse" title={`Calculating physics: ${iterationCount}/${maxIterations}`}></span>
-            )}
+            <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Highlight Settings</span>
           </button>
 
           {/* Controls panel */}
           {showPhysicsControls && (
             <div className="absolute top-0 right-16 bg-dark-secondary/90 border border-dark rounded-lg overflow-hidden min-w-[280px]">
             <div className="border-t border-dark p-3 space-y-3">
-              {/* Repulsion Strength */}
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">
-                  Repulsion Force: {(physicsParams.repulsionStrength / 1000).toFixed(1)}k
-                </label>
-                <input
-                  type="range"
-                  min="1000"
-                  max="50000"
-                  step="500"
-                  value={physicsParams.repulsionStrength}
-                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, repulsionStrength: Number(e.target.value) }))}
-                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  How strongly nodes push away from each other
-                </p>
-              </div>
+              <div className="text-sm font-medium text-slate-300 mb-3">Highlight Edge Settings</div>
 
-              {/* Attraction Strength */}
+              {/* Edge Width */}
               <div>
                 <label className="text-xs text-slate-400 block mb-1">
-                  Spring Strength: {physicsParams.attractionStrength.toFixed(2)}
+                  Edge Width: {highlightEdgeSettings.width}px
                 </label>
                 <input
                   type="range"
-                  min="0.01"
-                  max="5.0"
-                  step="0.05"
-                  value={physicsParams.attractionStrength}
-                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, attractionStrength: Number(e.target.value) }))}
-                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  How tightly edges pull connected nodes together
-                </p>
-              </div>
-
-              {/* Leaf Spring Strength */}
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">
-                  Leaf Tightness: {physicsParams.leafSpringStrength.toFixed(2)}
-                </label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="10.0"
-                  step="0.1"
-                  value={physicsParams.leafSpringStrength}
-                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, leafSpringStrength: Number(e.target.value) }))}
-                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  How closely leaf nodes orbit their parent nodes
-                </p>
-              </div>
-
-              {/* Damping */}
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">
-                  Damping: {(physicsParams.damping * 100).toFixed(0)}%
-                </label>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="0.99"
-                  step="0.01"
-                  value={physicsParams.damping}
-                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, damping: Number(e.target.value) }))}
-                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Energy loss per frame - higher values slow movement
-                </p>
-              </div>
-
-              {/* Node Chaos */}
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">
-                  Node Chaos: {physicsParams.nodeChaosFactor.toFixed(0)}%
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
+                  min="2"
+                  max="20"
                   step="1"
-                  value={physicsParams.nodeChaosFactor}
-                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, nodeChaosFactor: Number(e.target.value) }))}
+                  value={highlightEdgeSettings.width}
+                  onChange={(e) => setHighlightEdgeSettings(prev => ({ ...prev, width: Number(e.target.value) }))}
                   className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Randomizes physics per node for organic layouts
+                  Thickness of highlighted path edges
                 </p>
               </div>
 
-              {/* Center Gravity */}
+              {/* Edge Color */}
               <div>
                 <label className="text-xs text-slate-400 block mb-1">
-                  Center Gravity: {physicsParams.centerGravity.toFixed(4)}
+                  Edge Color
                 </label>
-                <input
-                  type="range"
-                  min="-0.02"
-                  max="0.02"
-                  step="0.0001"
-                  value={physicsParams.centerGravity}
-                  onChange={(e) => setPhysicsParams(prev => ({ ...prev, centerGravity: Number(e.target.value) }))}
-                  className="w-full h-1 bg-dark rounded-lg appearance-none cursor-pointer accent-cyber-500"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={highlightEdgeSettings.color}
+                    onChange={(e) => setHighlightEdgeSettings(prev => ({ ...prev, color: e.target.value }))}
+                    className="w-12 h-8 bg-dark border border-dark rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={highlightEdgeSettings.color}
+                    onChange={(e) => setHighlightEdgeSettings(prev => ({ ...prev, color: e.target.value }))}
+                    className="flex-1 px-2 py-1 bg-dark border border-dark rounded text-xs text-slate-300"
+                    placeholder="#22d3ee"
+                  />
+                </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Positive pulls toward center, negative pushes away
+                  Color of highlighted path edges
                 </p>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex gap-2 mb-2">
-                {/* Reset button */}
-                <button
-                  onClick={() => setPhysicsParams(defaultPhysicsParams)}
-                  className="flex-1 px-3 py-2 bg-slate-500/20 hover:bg-slate-500/30 border border-slate-500/50 rounded-lg text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center justify-center gap-2"
-                  title="Reset to default values"
-                >
-                  <span>Reset</span>
-                </button>
-
-                {/* Rerun button */}
-                <button
-                  onClick={handleRerunLayout}
-                  className="flex-1 px-3 py-2 bg-cyber-500/20 hover:bg-cyber-500/30 border border-cyber-500/50 rounded-lg text-sm text-cyber-400 hover:text-cyber-300 transition-colors flex items-center justify-center gap-2"
-                  title="Rerun physics simulation with current parameters"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Rerun</span>
-                </button>
+              {/* Color Fade Toggle */}
+              <div>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-xs text-slate-400">Color Fade</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={highlightEdgeSettings.colorFade}
+                      onChange={(e) => setHighlightEdgeSettings(prev => ({ ...prev, colorFade: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-dark rounded-full peer peer-checked:bg-cyber-500 transition-colors"></div>
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-slate-300 rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                  </div>
+                </label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Fade opacity with distance from selected node
+                </p>
               </div>
 
-              {/* Continue Physics button */}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleContinuePhysics}
-                  className="flex-1 px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/50 rounded-lg text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center justify-center gap-2"
-                  title="Continue physics from current positions"
-                >
-                  <span>Continue Physics</span>
-                </button>
+              {/* Size Fade Toggle */}
+              <div>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-xs text-slate-400">Size Fade</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={highlightEdgeSettings.sizeFade}
+                      onChange={(e) => setHighlightEdgeSettings(prev => ({ ...prev, sizeFade: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-dark rounded-full peer peer-checked:bg-cyber-500 transition-colors"></div>
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-slate-300 rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                  </div>
+                </label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Taper edge width with distance (thick to thin)
+                </p>
+              </div>
+
+              {/* Animation Toggle */}
+              <div>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-xs text-slate-400">Flow Animation</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={highlightEdgeSettings.animation}
+                      onChange={(e) => setHighlightEdgeSettings(prev => ({ ...prev, animation: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-dark rounded-full peer peer-checked:bg-cyber-500 transition-colors"></div>
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-slate-300 rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                  </div>
+                </label>
+                <p className="text-xs text-slate-500 mt-1">
+                  Animated dashed line showing flow direction
+                </p>
               </div>
             </div>
             </div>
