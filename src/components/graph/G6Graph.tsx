@@ -2541,27 +2541,31 @@ export function G6Graph() {
       {nodes.length > 0 && (
         <div className="absolute top-40 right-4 flex flex-col gap-2">
           {/* Physics Settings Button */}
-          <button
-            onClick={() => setShowPhysicsPanel(!showPhysicsPanel)}
-            className="group w-full px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-colors flex items-center gap-2"
-            title="Physics Parameters"
-          >
-            <Settings className="w-4 h-4 flex-shrink-0" />
-            <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Physics</span>
-            {iterationCount < maxIterations && (
-              <span className="flex-shrink-0 w-2 h-2 bg-green-400 rounded-full animate-pulse" title={`Calculating physics: ${iterationCount}/${maxIterations}`}></span>
-            )}
-          </button>
+          <div>
+            <button
+              onClick={() => setShowPhysicsPanel(!showPhysicsPanel)}
+              className="group px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-cyber-400 transition-colors flex items-center gap-2"
+              title="Physics Parameters"
+            >
+              <Settings className="w-4 h-4 flex-shrink-0" />
+              <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Physics</span>
+              {iterationCount < maxIterations && (
+                <span className="flex-shrink-0 w-2 h-2 bg-green-400 rounded-full animate-pulse" title={`Calculating physics: ${iterationCount}/${maxIterations}`}></span>
+              )}
+            </button>
+          </div>
 
           {/* Highlight Settings Button */}
-          <button
-            onClick={() => setShowHighlightPanel(!showHighlightPanel)}
-            className="group w-full px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
-            title="Highlight & Visual Settings"
-          >
-            <Shapes className="w-4 h-4 flex-shrink-0" />
-            <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Highlight</span>
-          </button>
+          <div>
+            <button
+              onClick={() => setShowHighlightPanel(!showHighlightPanel)}
+              className="group px-2 py-2 bg-dark-secondary/90 hover:bg-dark border border-dark rounded-lg text-sm text-slate-300 hover:text-purple-400 transition-colors flex items-center gap-2"
+              title="Highlight & Visual Settings"
+            >
+              <Shapes className="w-4 h-4 flex-shrink-0" />
+              <span className="max-w-0 group-hover:max-w-xs transition-all duration-200 whitespace-nowrap overflow-hidden">Highlight</span>
+            </button>
+          </div>
 
           {/* Old panels removed - now using modal panels below */}
           {showPhysicsControls && false && (
