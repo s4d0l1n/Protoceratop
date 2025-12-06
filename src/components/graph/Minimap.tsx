@@ -124,13 +124,14 @@ export function Minimap({
     }
 
     // Draw viewport rectangle
-    const viewportX = -panOffset.x / zoom
-    const viewportY = -panOffset.y / zoom
+    const viewTopLeftX = (canvasWidth / 2) - (panOffset.x / zoom);
+    const viewTopLeftY = (canvasHeight / 2) - (panOffset.y / zoom);
+
     const viewportWidth = canvasWidth / zoom
     const viewportHeight = canvasHeight / zoom
 
-    const rectX = toMinimapX(viewportX)
-    const rectY = toMinimapY(viewportY)
+    const rectX = toMinimapX(viewTopLeftX - viewportWidth / 2)
+    const rectY = toMinimapY(viewTopLeftY - viewportHeight / 2)
     const rectW = viewportWidth * scale
     const rectH = viewportHeight * scale
 
@@ -156,6 +157,8 @@ export function Minimap({
     const graphWidth = maxX - minX
     const graphHeight = maxY - minY
 
+    if (graphWidth <= 0 || graphHeight <= 0) return;
+
     const scaleX = minimapWidth / graphWidth
     const scaleY = minimapHeight / graphHeight
     const scale = Math.min(scaleX, scaleY) * 0.9
@@ -163,13 +166,15 @@ export function Minimap({
     const offsetX = (minimapWidth - graphWidth * scale) / 2
     const offsetY = (minimapHeight - graphHeight * scale) / 2
 
-    // Transform from minimap space to graph space
-    const graphX = (clickX - offsetX) / scale + minX
-    const graphY = (clickY - offsetY) / scale + minY
+    // From minimap coordinates to world coordinates
+    const worldX = (clickX - offsetX) / scale + minX;
+    const worldY = (clickY - offsetY) / scale + minY;
 
-    // Center viewport on clicked position
-    const newPanX = -graphX * zoom + canvasWidth / 2
-    const newPanY = -graphY * zoom + canvasHeight / 2
+    // We want the new center of the screen to be at the clicked world coordinate.
+    // The pan offset is the displacement of the world's origin from the canvas's center.
+    // newPan = - (worldClick - canvasCenter) * zoom
+    const newPanX = (-worldX + canvasWidth / 2) * zoom;
+    const newPanY = (-worldY + canvasHeight / 2) * zoom;
 
     onPanChange({ x: newPanX, y: newPanY })
   }

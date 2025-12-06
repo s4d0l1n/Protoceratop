@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { Download, Settings, RotateCcw, RotateCw, Lock, LockOpen, ChevronDown, ChevronUp, Map as MapIcon, Shapes, Info } from 'lucide-react'
+import { Viewport } from '@/lib/viewport'
 import { useGraphStore } from '@/stores/graphStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -45,6 +46,7 @@ function getRGBColor(time: number, speed: number): string {
  */
 export function G6Graph() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const viewportRef = useRef<Viewport | null>(null)
   const { nodes, edges, metaNodes } = useGraphStore()
   const { setSelectedNodeId, setSelectedMetaNodeId, selectedNodeId, selectedMetaNodeId, filteredNodeIds } = useUIStore()
   const { layoutConfig } = useProjectStore()
@@ -59,12 +61,22 @@ export function G6Graph() {
   const animationRef = useRef<number>()
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
   const [manuallyPositionedMetaNodes, setManuallyPositionedMetaNodes] = useState<Set<string>>(new Set())
   const [animationTime, setAnimationTime] = useState(0)
+
+  // State to trigger re-render when viewport changes
+  const [viewportState, setViewportState] = useState({ zoom: 1, pan: { x: 0, y: 0 }, rotation: 0 });
+
+  // Initialize viewport
+  useEffect(() => {
+    if (canvasRef.current && !viewportRef.current) {
+      viewportRef.current = new Viewport(canvasRef.current);
+      // Synchronize state for the first render
+      setViewportState(viewportRef.current.getTransform());
+    }
+  }, []);
 
   // Default physics parameters
   const defaultPhysicsParams = {
@@ -212,40 +224,7 @@ export function G6Graph() {
     setNodeDeviationFactors(newDeviations)
   }, [nodes, physicsParams.nodeChaosFactor])
 
-  // Smooth animation for view changes (zoom, pan, rotation)
-  useEffect(() => {
-    if (!isAnimating) return
 
-    const animationDuration = 300 // ms
-    const startTime = Date.now()
-    const startZoom = zoom
-    const startPan = { ...panOffset }
-    const startRotation = rotation
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / animationDuration, 1)
-
-      // Easing function (ease-out cubic)
-      const eased = 1 - Math.pow(1 - progress, 3)
-
-      // Interpolate values
-      setZoom(startZoom + (targetZoom - startZoom) * eased)
-      setPanOffset({
-        x: startPan.x + (targetPanOffset.x - startPan.x) * eased,
-        y: startPan.y + (targetPanOffset.y - startPan.y) * eased,
-      })
-      setRotation(startRotation + (targetRotation - startRotation) * eased)
-
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        setIsAnimating(false)
-      }
-    }
-
-    requestAnimationFrame(animate)
-  }, [isAnimating, targetZoom, targetPanOffset, targetRotation])
 
   // Memoize transformed edges for rendering with grouping
   const transformedEdges = useMemo(() => {
@@ -273,8 +252,8 @@ export function G6Graph() {
 
   // Memoize export handler - exports full graph as SVG
   const handleExport = useCallback(() => {
-    if (nodes.length === 0 || nodePositions.size === 0) return
-
+    if (!canvasRef.current || !viewportRef.current) return;
+    
     // Compute styles for all nodes
     const nodeStyles = new Map<string, any>()
     const rules = getEnabledRules()
@@ -308,8 +287,7 @@ export function G6Graph() {
       })
     })
 
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const { zoom, pan, rotation } = viewportRef.current.getTransform();
 
     // Export as SVG with current view state
     exportAsSVG(
@@ -320,14 +298,14 @@ export function G6Graph() {
       metaNodePositions,
       nodeStyles,
       edgeStyles,
-      canvas.width,
-      canvas.height,
+      canvasRef.current.width,
+      canvasRef.current.height,
       zoom,
-      panOffset,
+      pan,
       rotation,
       'raptorgraph-export'
     )
-  }, [nodes, edges, metaNodes, nodePositions, metaNodePositions, getEnabledRules, getCardTemplateById, getEdgeTemplateById, getDefaultEdgeTemplate, exportAsSVG, zoom, panOffset, rotation])
+  }, [nodes, edges, metaNodes, nodePositions, metaNodePositions, getEnabledRules, getCardTemplateById, getEdgeTemplateById, getDefaultEdgeTemplate, exportAsSVG])
 
   // Handler to rerun physics layout - reset everything like a refresh
   const handleRerunLayout = useCallback(() => {
@@ -376,21 +354,26 @@ export function G6Graph() {
 
   // Effect to calculate and highlight shortest paths from selected node/meta-node to all stub nodes
   useEffect(() => {
+    console.log('>>> Path highlighting useEffect triggered. selectedNodeId=', selectedNodeId, 'selectedMetaNodeId=', selectedMetaNodeId)
+
     // Determine starting nodes based on selection
     let startNodeIds: string[] = []
 
     if (selectedNodeId) {
       // Regular node selected
       startNodeIds = [selectedNodeId]
+      console.log('Path highlighting: Selected regular node', selectedNodeId)
     } else if (selectedMetaNodeId) {
       // Meta-node selected - use all its child nodes as starting points
       const metaNode = metaNodes.find(mn => mn.id === selectedMetaNodeId)
       if (metaNode) {
         startNodeIds = metaNode.childNodeIds
+        console.log('Path highlighting: Selected meta-node', selectedMetaNodeId, 'with children', startNodeIds)
       }
     }
 
     if (startNodeIds.length === 0) {
+      console.log('Path highlighting: No nodes selected, clearing highlights')
       setHighlightedEdgeIds(new Set())
       setEdgeDistances(new Map())
       return
@@ -404,48 +387,90 @@ export function G6Graph() {
       adjacency.get(edge.target)?.push({ nodeId: edge.source, edgeId: edge.id })
     })
 
-    // Find all stub nodes (nodes with isStub property)
-    const stubNodeIds = new Set(nodes.filter(n => n.isStub).map(n => n.id))
+    // Find stub/leaf nodes
+    // First try to find nodes with isStub property, otherwise use leaf nodes (degree 1)
+    let stubNodeIds = new Set(nodes.filter(n => n.isStub).map(n => n.id))
+    console.log('Path highlighting: Found', stubNodeIds.size, 'stub nodes')
 
-    // BFS from all starting nodes to find shortest paths to all stub nodes
+    // If no stub nodes found, use leaf nodes (degree 1)
+    if (stubNodeIds.size === 0) {
+      stubNodeIds = new Set(
+        nodes.filter(n => {
+          const neighbors = adjacency.get(n.id) || []
+          return neighbors.length === 1
+        }).map(n => n.id)
+      )
+      console.log('Path highlighting: Using', stubNodeIds.size, 'leaf nodes instead')
+    }
+
+    // If still no target nodes, just highlight all connected edges
+    if (stubNodeIds.size === 0) {
+      console.log('Path highlighting: No stub or leaf nodes found!')
+      setHighlightedEdgeIds(new Set())
+      setEdgeDistances(new Map())
+      return
+    }
+
+    // BFS from all starting nodes to find shortest paths to all stub/leaf nodes
+    // Exclude starting nodes from target stubs (don't find path from stub to itself)
+    const targetStubIds = new Set(
+      Array.from(stubNodeIds).filter(id => !startNodeIds.includes(id))
+    )
+    console.log('Path highlighting: Targeting', targetStubIds.size, 'stub nodes (excluding', startNodeIds.length, 'starting nodes)')
+
     const visited = new Set<string>(startNodeIds)
-    const queue: { nodeId: string; distance: number; edgeId: string | null }[] =
-      startNodeIds.map(nodeId => ({ nodeId, distance: 0, edgeId: null }))
+    const queue: { nodeId: string; distance: number; path: string[] }[] =
+      startNodeIds.map(nodeId => ({ nodeId, distance: 0, path: [] }))
 
     const edgeDistanceMap = new Map<string, number>()
     const allPaths = new Set<string>()
     const foundStubs = new Set<string>()
+    const pathsToStubs = new Map<string, string[]>() // stub nodeId -> edge path
 
-    while (queue.length > 0) {
-      const { nodeId, distance, edgeId } = queue.shift()!
+    let iterations = 0
+    const maxIterations = 10000 // Safety limit
 
-      // Add the edge that got us here (if any) to the path
-      if (edgeId) {
-        edgeDistanceMap.set(edgeId, distance)
-        allPaths.add(edgeId)
-      }
+    while (queue.length > 0 && iterations < maxIterations) {
+      iterations++
+      const { nodeId, distance, path } = queue.shift()!
 
-      // Check if current node is a stub
-      const isStub = stubNodeIds.has(nodeId)
-      if (isStub && distance > 0) {
+      // Check if current node is a target stub
+      const isTargetStub = targetStubIds.has(nodeId)
+
+      // If this is a target stub node and we haven't already found a path to it, save it
+      if (isTargetStub && distance > 0 && !pathsToStubs.has(nodeId)) {
         foundStubs.add(nodeId)
-        // Don't continue BFS beyond stub nodes
-        continue
+        pathsToStubs.set(nodeId, path)
+        // Add all edges in this path to the highlight set with their distances
+        path.forEach((edgeId, index) => {
+          allPaths.add(edgeId)
+          // Only set distance if not already set (prefer shorter paths)
+          if (!edgeDistanceMap.has(edgeId)) {
+            edgeDistanceMap.set(edgeId, index + 1)
+          }
+        })
+        // IMPORTANT: Continue BFS to find other stub nodes beyond this one
       }
 
-      // Continue BFS to neighbors (if not a stub, or if we're at distance 0)
+      // Continue BFS to neighbors
       const neighbors = adjacency.get(nodeId) || []
       for (const neighbor of neighbors) {
         if (!visited.has(neighbor.nodeId)) {
           visited.add(neighbor.nodeId)
+          const newPath = [...path, neighbor.edgeId]
           queue.push({
             nodeId: neighbor.nodeId,
             distance: distance + 1,
-            edgeId: neighbor.edgeId
+            path: newPath
           })
         }
       }
     }
+
+    console.log('Path highlighting: BFS iterations:', iterations, 'visited:', visited.size, 'nodes')
+
+    console.log('Path highlighting: Highlighting', allPaths.size, 'edges. Found', foundStubs.size, 'stub nodes')
+    console.log('Path highlighting: Distance map:', Array.from(edgeDistanceMap.entries()).slice(0, 5))
 
     setHighlightedEdgeIds(allPaths)
     setEdgeDistances(edgeDistanceMap)
@@ -453,41 +478,15 @@ export function G6Graph() {
 
   // Mouse event handlers for dragging and panning
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvasRef.current || !viewportRef.current) return;
+    const viewport = viewportRef.current;
+    const { width, height } = canvasRef.current;
 
-    const rect = canvas.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    let y = e.clientY - rect.top;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const screenX = (e.clientX - rect.left) * (width / rect.width);
+    const screenY = (e.clientY - rect.top) * (height / rect.height);
 
-    // Use canvas internal dimensions (which should match offsetWidth/offsetHeight)
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-
-    // Account for any scaling between displayed size and canvas resolution
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    x *= scaleX;
-    y *= scaleY;
-
-    x = x - panOffset.x - centerX;
-    y = y - panOffset.y - centerY;
-
-    if (rotation !== 0) {
-      const rad = (rotation * Math.PI) / 180;
-      const cos = Math.cos(-rad);
-      const sin = Math.sin(-rad);
-      const rotatedX = x * cos - y * sin;
-      const rotatedY = x * sin + y * cos;
-      x = rotatedX;
-      y = rotatedY;
-    }
-
-    x /= zoom;
-    y /= zoom;
-    x += centerX;
-    y += centerY;
+    const worldPos = viewport.screenToWorld({ x: screenX, y: screenY });
 
     if (e.button === 1 || e.shiftKey) {
       setIsPanning(true);
@@ -496,206 +495,110 @@ export function G6Graph() {
       return;
     }
 
-    // Hit detection logic for meta-nodes (check these first, they render on top)
+    // Base card dimensions in world coordinates
+    const baseCardWidth = 120;
+    const baseCardHeight = 60;
+
+    // Hit detection for meta-nodes (use larger hit box)
     for (const [metaNodeId, pos] of Array.from(metaNodePositions.entries()).reverse()) {
-      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
-      if (distance < 80) { // Larger hit radius for meta-nodes
-        // Always select the meta-node (for details panel and path highlighting)
+      // Meta-nodes can be larger, so use a generous hit box
+      const hitWidth = 150;
+      const hitHeight = 100;
+      if (Math.abs(worldPos.x - pos.x) < hitWidth / 2 && Math.abs(worldPos.y - pos.y) < hitHeight / 2) {
         setSelectedMetaNodeId(metaNodeId);
-        setSelectedNodeId(null); // Clear regular node selection
-
+        setSelectedNodeId(null);
         if (!isLocked) {
-          // If not locked, also prepare for dragging.
           setDraggedNodeId(metaNodeId);
-          setDragOffset({ x: x - pos.x, y: y - pos.y });
+          setDragOffset({ x: worldPos.x - pos.x, y: worldPos.y - pos.y });
         }
-        return; // Stop processing, we've handled the click/drag.
+        return;
       }
     }
 
-    // Hit detection logic for regular nodes
-    for (const [nodeId, pos] of Array.from(nodePositions.entries()).reverse()) { // Reverse to check top nodes first
-      const distance = Math.sqrt((x - pos.x) ** 2 + (y - pos.y) ** 2);
-      if (distance < 60) { // Hit radius
-        // Always select the node (for details panel and path highlighting)
+    // Hit detection for regular nodes (use base card dimensions)
+    for (const [nodeId, pos] of Array.from(nodePositions.entries()).reverse()) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) continue;
+
+      // Get the card template to determine actual size
+      const cardTemplate = getCardTemplateById(node.cardTemplateId);
+      const sizeMultiplier = cardTemplate?.size || 1;
+      const cardWidth = baseCardWidth * sizeMultiplier;
+      const cardHeight = baseCardHeight * sizeMultiplier;
+
+      // Check if click is within the card bounds
+      if (Math.abs(worldPos.x - pos.x) < cardWidth / 2 && Math.abs(worldPos.y - pos.y) < cardHeight / 2) {
         setSelectedNodeId(nodeId);
-        setSelectedMetaNodeId(null); // Clear meta-node selection
-
+        setSelectedMetaNodeId(null);
         if (!isLocked) {
-          // If not locked, also prepare for dragging.
           setDraggedNodeId(nodeId);
-          setDragOffset({ x: x - pos.x, y: y - pos.y });
+          setDragOffset({ x: worldPos.x - pos.x, y: worldPos.y - pos.y });
         }
-        return; // Stop processing, we've handled the click/drag.
+        return;
       }
     }
 
-    // If we reach here, no node was clicked. Start panning.
+    // If no node was hit, start panning
     setIsPanning(true);
     setPanStart({ x: e.clientX, y: e.clientY });
-  }, [nodePositions, metaNodePositions, panOffset, zoom, rotation, isLocked, visibleMetaNodes, metaNodes, setSelectedNodeId, setSelectedMetaNodeId]);
+  }, [nodePositions, metaNodePositions, isLocked, setSelectedNodeId, setSelectedMetaNodeId, nodes, getCardTemplateById]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const rect = canvas.getBoundingClientRect()
+    if (!canvasRef.current || !viewportRef.current) return;
+    const viewport = viewportRef.current;
 
     // Handle panning
     if (isPanning) {
-      const dx = e.clientX - panStart.x
-      const dy = e.clientY - panStart.y
-      setPanOffset((prev) => ({
-        x: prev.x + dx,
-        y: prev.y + dy,
-      }))
-      setPanStart({ x: e.clientX, y: e.clientY })
-      return
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      viewport.pan.x += dx;
+      viewport.pan.y += dy;
+      setPanStart({ x: e.clientX, y: e.clientY });
+      setViewportState(viewport.getTransform()); // Trigger re-render;
+      return;
     }
 
     // Handle node/meta-node dragging
     if (draggedNodeId) {
-      // Transform mouse coordinates using the same logic as handleMouseDown
-      let x = e.clientX - rect.left
-      let y = e.clientY - rect.top
+      const rect = canvasRef.current.getBoundingClientRect();
+      const screenX = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
+      const screenY = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
+      const worldPos = viewport.screenToWorld({ x: screenX, y: screenY });
 
-      const centerX = canvas.width / 2
-      const centerY = canvas.height / 2
+      const newX = worldPos.x - dragOffset.x;
+      const newY = worldPos.y - dragOffset.y;
 
-      // Account for any scaling between displayed size and canvas resolution
-      const scaleX = canvas.width / rect.width
-      const scaleY = canvas.height / rect.height
-
-      x *= scaleX
-      y *= scaleY
-
-      x = x - panOffset.x - centerX
-      y = y - panOffset.y - centerY
-
-      if (rotation !== 0) {
-        const rad = (rotation * Math.PI) / 180
-        const cos = Math.cos(-rad)
-        const sin = Math.sin(-rad)
-        const rotatedX = x * cos - y * sin
-        const rotatedY = x * sin + y * cos
-        x = rotatedX
-        y = rotatedY
-      }
-
-      x /= zoom
-      y /= zoom
-      x += centerX
-      y += centerY
-
-      // Check if dragging a meta-node
-      const isMetaNode = metaNodePositions.has(draggedNodeId)
+      const isMetaNode = metaNodePositions.has(draggedNodeId);
 
       if (isMetaNode) {
-        // Update meta-node position and mark as manually positioned
-        const newX = x - dragOffset.x
-        const newY = y - dragOffset.y
-
-        setMetaNodePositions((prev) => {
-          const newPositions = new Map(prev)
-          const currentPos = newPositions.get(draggedNodeId)
-          if (currentPos) {
-            newPositions.set(draggedNodeId, {
-              ...currentPos,
-              x: newX,
-              y: newY,
-            })
-          }
-          return newPositions
-        })
-
-        // Update target position so it doesn't snap back
-        setTargetMetaNodePositions((prev) => {
-          const newTargets = new Map(prev)
-          newTargets.set(draggedNodeId, { x: newX, y: newY })
-          return newTargets
-        })
-
-        // Mark this meta-node as manually positioned
-        setManuallyPositionedMetaNodes((prev) => {
-          const newSet = new Set(prev)
-          newSet.add(draggedNodeId)
-          return newSet
-        })
+        setMetaNodePositions(prev => new Map(prev).set(draggedNodeId, { ...prev.get(draggedNodeId)!, x: newX, y: newY }));
+        setTargetMetaNodePositions(prev => new Map(prev).set(draggedNodeId, { x: newX, y: newY }));
+        setManuallyPositionedMetaNodes(prev => new Set(prev).add(draggedNodeId));
       } else {
-        // Update regular node position
-        const newX = x - dragOffset.x
-        const newY = y - dragOffset.y
-
-        // Find if this node belongs to a group (meta-node)
-        const belongsToGroup = metaNodes.find(mn => mn.childNodeIds.includes(draggedNodeId))
-
-        setNodePositions((prev) => {
-          const newPositions = new Map(prev)
-          const currentPos = newPositions.get(draggedNodeId)
-
+        const belongsToGroup = metaNodes.find(mn => mn.childNodeIds.includes(draggedNodeId));
+        setNodePositions(prev => {
+          const newPositions = new Map(prev);
+          const currentPos = newPositions.get(draggedNodeId);
           if (currentPos) {
-            // Calculate the offset from the old position
-            const dx = newX - currentPos.x
-            const dy = newY - currentPos.y
+            const dx = newX - currentPos.x;
+            const dy = newY - currentPos.y;
 
-            // If part of a group, move all nodes in the group together (marching band)
             if (belongsToGroup) {
               belongsToGroup.childNodeIds.forEach(nodeId => {
-                const nodePos = newPositions.get(nodeId)
+                const nodePos = newPositions.get(nodeId);
                 if (nodePos) {
-                  newPositions.set(nodeId, {
-                    ...nodePos,
-                    x: nodePos.x + dx,
-                    y: nodePos.y + dy,
-                  })
+                  newPositions.set(nodeId, { ...nodePos, x: nodePos.x + dx, y: nodePos.y + dy });
                 }
-              })
+              });
             } else {
-              // Just move this single node
-              newPositions.set(draggedNodeId, {
-                ...currentPos,
-                x: newX,
-                y: newY,
-              })
+              newPositions.set(draggedNodeId, { ...currentPos, x: newX, y: newY });
             }
           }
-          return newPositions
-        })
-
-        // Update target positions so they don't snap back
-        setTargetNodePositions((prev) => {
-          const newTargets = new Map(prev)
-
-          if (belongsToGroup) {
-            const currentPos = nodePositions.get(draggedNodeId)
-            if (currentPos) {
-              const dx = newX - currentPos.x
-              const dy = newY - currentPos.y
-
-              belongsToGroup.childNodeIds.forEach(nodeId => {
-                const nodePos = nodePositions.get(nodeId)
-                if (nodePos) {
-                  newTargets.set(nodeId, {
-                    x: nodePos.x + dx,
-                    y: nodePos.y + dy,
-                  })
-                }
-              })
-            }
-          } else {
-            newTargets.set(draggedNodeId, { x: newX, y: newY })
-          }
-
-          return newTargets
-        })
-      }
-
-      // Request animation frame for smooth rendering during drag
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
+          return newPositions;
+        });
       }
     }
-  }, [draggedNodeId, dragOffset, isPanning, panStart, panOffset, zoom, rotation, metaNodePositions, metaNodes, nodePositions])
+  }, [draggedNodeId, dragOffset, isPanning, panStart, metaNodePositions, metaNodes, nodePositions]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     // Stop panning
@@ -708,19 +611,22 @@ export function G6Graph() {
 
     // If no significant drag occurred, treat it as a click
     const canvas = canvasRef.current
-    if (!canvas) {
+    if (!canvas || !viewportRef.current) {
       setDraggedNodeId(null)
       return
     }
 
+    const viewport = viewportRef.current
+    const { width, height } = canvas
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left - panOffset.x) / zoom
-    const y = (e.clientY - rect.top - panOffset.y) / zoom
+    const screenX = (e.clientX - rect.left) * (width / rect.width)
+    const screenY = (e.clientY - rect.top) * (height / rect.height)
+    const worldPos = viewport.screenToWorld({ x: screenX, y: screenY })
 
     // Check if draggedNodeId is a meta-node or regular node
     const pos = nodePositions.get(draggedNodeId) || metaNodePositions.get(draggedNodeId)
     if (pos) {
-      const dragDistance = Math.sqrt((x - pos.x - dragOffset.x) ** 2 + (y - pos.y - dragOffset.y) ** 2)
+      const dragDistance = Math.sqrt((worldPos.x - pos.x - dragOffset.x) ** 2 + (worldPos.y - pos.y - dragOffset.y) ** 2)
 
       // If drag distance is small (less than 3 pixels), treat as click
       if (dragDistance < 3) {
@@ -739,79 +645,34 @@ export function G6Graph() {
     }
 
     setDraggedNodeId(null)
-  }, [draggedNodeId, nodePositions, dragOffset, metaNodePositions, metaNodes, setSelectedNodeId, setSelectedMetaNodeId, isPanning, panOffset, zoom])
+  }, [draggedNodeId, nodePositions, dragOffset, metaNodePositions, metaNodes, setSelectedNodeId, setSelectedMetaNodeId, isPanning])
 
   // Handle mouse wheel for zooming - zoom towards cursor
-  // Note: Using useEffect to attach with { passive: false } to allow preventDefault
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const handleWheel = (e: WheelEvent) => {
-      e.preventDefault()
+      if (!viewportRef.current) return;
+      e.preventDefault();
 
-      const rect = canvas.getBoundingClientRect()
-      let mouseX = e.clientX - rect.left
-      let mouseY = e.clientY - rect.top
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+      
+      viewportRef.current.handleZoom(mouseX, mouseY, e.deltaY);
+      
+      // Force re-render by updating state
+      setViewportState(viewportRef.current.getTransform());
+    };
 
-      // Account for canvas resolution scaling
-      const scaleX = canvas.width / rect.width
-      const scaleY = canvas.height / rect.height
-      mouseX *= scaleX
-      mouseY *= scaleY
-
-      const centerX = canvas.width / 2
-      const centerY = canvas.height / 2
-
-      // Transform mouse to world coordinates (before zoom change)
-      let worldX = mouseX - panOffset.x - centerX
-      let worldY = mouseY - panOffset.y - centerY
-
-      if (rotation !== 0) {
-        const rad = (rotation * Math.PI) / 180
-        const cos = Math.cos(-rad)
-        const sin = Math.sin(-rad)
-        const rotatedX = worldX * cos - worldY * sin
-        const rotatedY = worldX * sin + worldY * cos
-        worldX = rotatedX
-        worldY = rotatedY
-      }
-
-      worldX /= zoom
-      worldY /= zoom
-
-      // Calculate new zoom
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
-      const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.1), 5)
-
-      // Transform world coordinates back to screen with new zoom
-      let newScreenX = worldX * newZoom
-      let newScreenY = worldY * newZoom
-
-      if (rotation !== 0) {
-        const rad = (rotation * Math.PI) / 180
-        const cos = Math.cos(rad)
-        const sin = Math.sin(rad)
-        const rotatedX = newScreenX * cos - newScreenY * sin
-        const rotatedY = newScreenX * sin + newScreenY * cos
-        newScreenX = rotatedX
-        newScreenY = rotatedY
-      }
-
-      // Calculate new pan offset to keep world point under mouse
-      const newPanX = mouseX - newScreenX - centerX
-      const newPanY = mouseY - newScreenY - centerY
-
-      setZoom(newZoom)
-      setPanOffset({ x: newPanX, y: newPanY })
-    }
-
-    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
-      canvas.removeEventListener('wheel', handleWheel)
-    }
-  }, [zoom, panOffset, rotation])
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, []); // Empty dependency array, runs once
+
 
   // Initialize node positions with memoized layout calculation
   useEffect(() => {
@@ -1623,10 +1484,9 @@ export function G6Graph() {
 
       // Save context and apply pan/zoom/rotation transformations
       ctx.save()
-      ctx.translate(panOffset.x + canvas.width / 2, panOffset.y + canvas.height / 2)
-      ctx.rotate((rotation * Math.PI) / 180)
-      ctx.scale(zoom, zoom)
-      ctx.translate(-canvas.width / 2, -canvas.height / 2)
+      if (viewportRef.current) {
+        viewportRef.current.applyToContext(ctx)
+      }
 
       // Draw swimlanes if in timeline mode
       if (swimlanes.size > 0) {
@@ -2544,7 +2404,7 @@ export function G6Graph() {
         cancelAnimationFrame(animationRef.current)
       }
     }
-  }, [nodes, edges, nodePositions, selectedNodeId, filteredNodeIds, visibleNodes, swimlanes, metaNodes, visibleMetaNodes, metaNodePositions, panOffset, zoom, rotation, transformedEdges, targetNodePositions, targetMetaNodePositions, draggedNodeId, manuallyPositionedMetaNodes, highlightedEdgeIds, edgeDistances])
+  }, [nodes, edges, nodePositions, selectedNodeId, filteredNodeIds, visibleNodes, swimlanes, metaNodes, visibleMetaNodes, metaNodePositions, viewportState, transformedEdges, targetNodePositions, targetMetaNodePositions, draggedNodeId, manuallyPositionedMetaNodes, highlightedEdgeIds, edgeDistances])
 
   return (
     <div className="relative w-full h-full">
@@ -2799,71 +2659,35 @@ export function G6Graph() {
 
       {/* Graph Controls */}
       <GraphControls
-        zoom={zoom}
-        rotation={rotation}
+        zoom={viewportState.zoom}
+        rotation={viewportState.rotation}
         isLocked={isLocked}
         onZoomIn={() => {
-          const canvas = canvasRef.current
-          if (!canvas) return
-
-          const zoomFactor = 1.1 // 10% zoom increment
-          const newZoom = Math.min(5, zoom * zoomFactor)
-
-          // Zoom towards center of screen
-          const centerX = canvas.offsetWidth / 2
-          const centerY = canvas.offsetHeight / 2
-
-          // Calculate the point in graph space at the center
-          const graphX = (centerX - panOffset.x) / zoom
-          const graphY = (centerY - panOffset.y) / zoom
-
-          // Calculate new pan offset to keep that point at center
-          const newPanX = centerX - graphX * newZoom
-          const newPanY = centerY - graphY * newZoom
-
-          // Set target values and start animation
-          setTargetZoom(newZoom)
-          setTargetPanOffset({ x: newPanX, y: newPanY })
-          setIsAnimating(true)
+          if (!viewportRef.current) return;
+          viewportRef.current.zoom *= 1.2;
+          setViewportState(viewportRef.current.getTransform());
         }}
         onZoomOut={() => {
-          const canvas = canvasRef.current
-          if (!canvas) return
-
-          const zoomFactor = 0.9 // 10% zoom decrement
-          const newZoom = Math.max(0.1, zoom * zoomFactor)
-
-          // Zoom towards center of screen
-          const centerX = canvas.offsetWidth / 2
-          const centerY = canvas.offsetHeight / 2
-
-          // Calculate the point in graph space at the center
-          const graphX = (centerX - panOffset.x) / zoom
-          const graphY = (centerY - panOffset.y) / zoom
-
-          // Calculate new pan offset to keep that point at center
-          const newPanX = centerX - graphX * newZoom
-          const newPanY = centerY - graphY * newZoom
-
-          // Set target values and start animation
-          setTargetZoom(newZoom)
-          setTargetPanOffset({ x: newPanX, y: newPanY })
-          setIsAnimating(true)
+          if (!viewportRef.current) return;
+          viewportRef.current.zoom /= 1.2;
+          setViewportState(viewportRef.current.getTransform());
         }}
         onReset={() => {
-          // Set target values and start animation
-          setTargetZoom(1)
-          setTargetPanOffset({ x: 0, y: 0 })
-          setTargetRotation(0)
-          setIsAnimating(true)
+          if (!viewportRef.current) return;
+          viewportRef.current.zoom = 1;
+          viewportRef.current.pan = { x: 0, y: 0 };
+          viewportRef.current.rotation = 0;
+          setViewportState(viewportRef.current.getTransform());
         }}
         onRotateLeft={() => {
-          setTargetRotation((rotation - 15) % 360)
-          setIsAnimating(true)
+          if (!viewportRef.current) return;
+          viewportRef.current.rotation -= 15;
+          setViewportState(viewportRef.current.getTransform());
         }}
         onRotateRight={() => {
-          setTargetRotation((rotation + 15) % 360)
-          setIsAnimating(true)
+          if (!viewportRef.current) return;
+          viewportRef.current.rotation += 15;
+          setViewportState(viewportRef.current.getTransform());
         }}
         onToggleLock={() => setIsLocked(!isLocked)}
         showMinimap={showMinimap}
@@ -2873,12 +2697,14 @@ export function G6Graph() {
             <Minimap
               nodePositions={nodePositions}
               metaNodePositions={metaNodePositions}
-              panOffset={panOffset}
-              zoom={zoom}
+              panOffset={viewportState.pan}
+              zoom={viewportState.zoom}
               canvasWidth={canvasRef.current.offsetWidth}
               canvasHeight={canvasRef.current.offsetHeight}
               onPanChange={(offset) => {
-                setPanOffset(offset)
+                if (!viewportRef.current) return;
+                viewportRef.current.pan = offset;
+                setViewportState(viewportRef.current.getTransform());
               }}
             />
           ) : undefined
