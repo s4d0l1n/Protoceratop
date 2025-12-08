@@ -962,8 +962,18 @@ export function G6Graph() {
         const canvas = canvasRef.current
         if (!canvas) return prev
 
-        // Use cached adjacency map (no need to rebuild every frame)
-        const adjacency = adjacencyMap
+        // Use cached adjacency map (with fallback for initial render)
+        // During first render, adjacencyMap might not be ready due to React timing
+        let adjacency = adjacencyMap
+        if (!adjacency || adjacency.size === 0) {
+          // Fallback: rebuild adjacency map (only happens on first frame)
+          adjacency = new Map<string, Set<string>>()
+          nodes.forEach(n => adjacency.set(n.id, new Set()))
+          edges.forEach(edge => {
+            adjacency.get(edge.source)?.add(edge.target)
+            adjacency.get(edge.target)?.add(edge.source)
+          })
+        }
 
         // Node sizing constants (used by drag physics and main physics)
         const nodeRadius = 60
