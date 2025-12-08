@@ -67,6 +67,11 @@ export function G6Graph() {
   const [manuallyPositionedMetaNodes, setManuallyPositionedMetaNodes] = useState<Set<string>>(new Set())
   const [animationTime, setAnimationTime] = useState(0)
 
+  // PERFORMANCE: FPS tracking for monitoring performance
+  const [fps, setFps] = useState(0)
+  const frameCountRef = useRef(0)
+  const lastFpsUpdateRef = useRef(performance.now())
+
   // State to trigger re-render when viewport changes
   const [viewportState, setViewportState] = useState({ zoom: 1, pan: { x: 0, y: 0 }, rotation: 0 });
 
@@ -935,6 +940,15 @@ export function G6Graph() {
     }
 
     const render = () => {
+      // PERFORMANCE: Calculate FPS
+      frameCountRef.current++
+      const now = performance.now()
+      if (now - lastFpsUpdateRef.current >= 1000) {
+        setFps(frameCountRef.current)
+        frameCountRef.current = 0
+        lastFpsUpdateRef.current = now
+      }
+
       // Update animation time for effects
       setAnimationTime((prev) => prev + 0.016) // Assuming ~60fps
       // Only increment iteration count if physics is enabled
@@ -2530,6 +2544,19 @@ export function G6Graph() {
         onMouseLeave={handleMouseUp}
       />
 
+      {/* PERFORMANCE: FPS Counter */}
+      <div className="absolute top-4 left-4 px-3 py-2 bg-dark-secondary/90 border border-dark rounded-lg">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">FPS:</span>
+          <span className={`font-medium text-sm ${
+            fps >= 50 ? 'text-green-400' :
+            fps >= 30 ? 'text-yellow-400' :
+            'text-red-400'
+          }`}>
+            {fps}
+          </span>
+        </div>
+      </div>
 
       {/* Export button */}
       {nodes.length > 0 && (
