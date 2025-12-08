@@ -126,6 +126,25 @@ export function G6Graph() {
   const [showPhysicsPanel, setShowPhysicsPanel] = useState(false)
   const [showHighlightPanel, setShowHighlightPanel] = useState(false)
 
+  // PERFORMANCE OPTIMIZATION: Cache adjacency map and node map
+  // These are static data structures that only change when nodes/edges change
+  // Building them every frame (60x/second) is wasteful
+  const { adjacencyMap, nodeMap } = useMemo(() => {
+    const adjacency = new Map<string, Set<string>>()
+    const nodeMapping = new Map(nodes.map(n => [n.id, n]))
+
+    // Initialize empty adjacency sets for all nodes
+    nodes.forEach(n => adjacency.set(n.id, new Set()))
+
+    // Populate adjacency relationships from edges
+    edges.forEach(edge => {
+      adjacency.get(edge.source)?.add(edge.target)
+      adjacency.get(edge.target)?.add(edge.source)
+    })
+
+    return { adjacencyMap: adjacency, nodeMap: nodeMapping }
+  }, [nodes, edges])
+
   // Function to calculate hulls from current node positions (parent-leaf clustering)
   const calculateHullsFromPositions = useCallback((
     currentPositions: Map<string, NodePosition>
@@ -928,14 +947,8 @@ export function G6Graph() {
         const canvas = canvasRef.current
         if (!canvas) return prev
 
-        // Build adjacency map (needed for drag physics)
-        const adjacency = new Map<string, Set<string>>()
-        const nodeMap = new Map(nodes.map(n => [n.id, n]))
-        nodes.forEach(n => adjacency.set(n.id, new Set()))
-        edges.forEach(edge => {
-          adjacency.get(edge.source)?.add(edge.target)
-          adjacency.get(edge.target)?.add(edge.source)
-        })
+        // Use cached adjacency map (no need to rebuild every frame)
+        const adjacency = adjacencyMap
 
         // Node sizing constants (used by drag physics and main physics)
         const nodeRadius = 60
@@ -1772,7 +1785,7 @@ export function G6Graph() {
             // Flow outward from selected node (forward = positive offset, reverse = negative offset)
             const flowMultiplier = flowDirection ? 1 : -1
             ctx.setLineDash([20, 10])
-            ctx.lineDashOffset = flowMultiplier * animationTime * 5 // Faster flow (5x speed)
+            ctx.lineDashOffset = flowMultiplier * animationTime * 15 // Much faster flow (15x speed)
           } else if (edgeStyle === 'dashed') {
             ctx.setLineDash([10, 5])
             ctx.lineDashOffset = 0
