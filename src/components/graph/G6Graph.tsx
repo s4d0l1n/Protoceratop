@@ -1737,6 +1737,19 @@ export function G6Graph() {
           : nodePositions.get(renderTarget)
 
         if (sourcePos && targetPos) {
+          // PERFORMANCE: Viewport culling - skip edges completely outside visible area
+          if (viewportBounds) {
+            const edgeLeft = Math.min(sourcePos.x, targetPos.x)
+            const edgeRight = Math.max(sourcePos.x, targetPos.x)
+            const edgeTop = Math.min(sourcePos.y, targetPos.y)
+            const edgeBottom = Math.max(sourcePos.y, targetPos.y)
+
+            // Skip if edge bounding box doesn't intersect with viewport
+            if (edgeRight < viewportBounds.left || edgeLeft > viewportBounds.right ||
+                edgeBottom < viewportBounds.top || edgeTop > viewportBounds.bottom) {
+              return // Skip this edge - it's outside viewport
+            }
+          }
           // Evaluate rules for this edge
           const rules = getEnabledRules()
           const ruleResult = evaluateEdgeRules(edge, rules)
@@ -1977,6 +1990,16 @@ export function G6Graph() {
         const pos = metaNodePositions.get(metaNode.id)
         if (!pos) return
 
+        // PERFORMANCE: Viewport culling for meta-nodes
+        // Meta-nodes can be large, use generous margin
+        const metaNodeMargin = 500
+        if (viewportBounds) {
+          if (pos.x + metaNodeMargin < viewportBounds.left || pos.x - metaNodeMargin > viewportBounds.right ||
+              pos.y + metaNodeMargin < viewportBounds.top || pos.y - metaNodeMargin > viewportBounds.bottom) {
+            return // Skip this meta-node - it's outside viewport
+          }
+        }
+
         if (!metaNode.collapsed) {
           // Expanded meta-nodes no longer show a badge - they are invisible
           // This forces all groupings to be shown as collapsed containers with grid layout
@@ -2165,6 +2188,9 @@ export function G6Graph() {
         })
       })
 
+      // PERFORMANCE: Get visible viewport bounds for culling
+      const viewportBounds = viewportRef.current?.getVisibleBounds()
+
       // Draw nodes as cards (only visible nodes)
       visibleNodes.forEach((node) => {
         const pos = nodePositions.get(node.id)
@@ -2172,6 +2198,16 @@ export function G6Graph() {
           // Debug: log nodes without positions
           console.warn(`Node ${node.id} is visible but has no position`)
           return
+        }
+
+        // PERFORMANCE: Viewport culling - skip nodes outside visible area
+        // Add margin to account for node size (max 240px for 2x size multiplier)
+        const margin = 240
+        if (viewportBounds) {
+          if (pos.x + margin < viewportBounds.left || pos.x - margin > viewportBounds.right ||
+              pos.y + margin < viewportBounds.top || pos.y - margin > viewportBounds.bottom) {
+            return // Skip this node - it's outside viewport
+          }
         }
 
         const isSelected = node.id === selectedNodeId

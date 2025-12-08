@@ -98,6 +98,33 @@ export class Viewport {
     ctx.translate(-width / 2, -height / 2);
   }
 
+  /**
+   * Gets the visible bounds of the viewport in world coordinates.
+   * Returns a bounding box that encompasses all visible area.
+   * Useful for viewport culling - only rendering objects within these bounds.
+   */
+  getVisibleBounds(): { left: number; right: number; top: number; bottom: number } {
+    const { width, height } = this.canvas;
+
+    // Transform all four corners of the canvas to world space
+    const topLeft = this.screenToWorld({ x: 0, y: 0 });
+    const topRight = this.screenToWorld({ x: width, y: 0 });
+    const bottomLeft = this.screenToWorld({ x: 0, y: height });
+    const bottomRight = this.screenToWorld({ x: width, y: height });
+
+    // Find the bounding box that contains all corners
+    // (rotation can make corners not align with axes)
+    const xs = [topLeft.x, topRight.x, bottomLeft.x, bottomRight.x];
+    const ys = [topLeft.y, topRight.y, bottomLeft.y, bottomRight.y];
+
+    return {
+      left: Math.min(...xs),
+      right: Math.max(...xs),
+      top: Math.min(...ys),
+      bottom: Math.max(...ys)
+    };
+  }
+
   // --- Interaction Handlers ---
 
   /**
