@@ -105,11 +105,11 @@ export function G6Graph() {
 
   // Default physics parameters
   const defaultPhysicsParams = {
-    repulsionStrength: 15000,         // How strongly nodes push apart
-    attractionStrength: 0.15,         // How strongly edges pull together
+    repulsionStrength: 25000,         // How strongly nodes push apart
+    attractionStrength: 0.1,          // How strongly edges pull together
     leafSpringStrength: 0.8,          // How tightly leaves stick to parents
     damping: 0.85,                    // Energy loss per frame (0-1)
-    centerGravity: 0.0005,            // Weak pull toward canvas center
+    centerGravity: 0.0001,            // Very weak pull toward canvas center (almost none)
     nodeChaosFactor: 0,               // Random variation per node (0-100)
     intraClusterAttraction: 0.05,     // Cluster island layout parameter
     leafRadialForce: 0.3,             // Cluster island layout parameter
@@ -1358,7 +1358,8 @@ export function G6Graph() {
               }
             } else {
               // Normal connections: standard spring parameters (scaled by user parameter)
-              idealLength = 120  // Structural connections only
+              // INCREASED from 120 to 250 for more dramatic island separation
+              idealLength = 250  // Structural connections want to be far apart
 
               // Apply node chaos: add a percentage of MAX attraction based on each node's random factor
               const nodeRandomFactor = nodeDeviationFactors.get(node.id) || 0
@@ -1488,6 +1489,21 @@ export function G6Graph() {
                 }
               }
               // If NOT connected, leaves repel normally (this prevents blob formation!)
+
+              // HUB REPULSION BOOST: High-degree nodes push harder
+              // This helps hubs spread far apart and create distinct islands
+              if (!isLeaf && !otherIsLeaf) {
+                const myDegree = nodeDegree
+                const otherDegree = (adjacency.get(otherNode.id) || new Set()).size
+                const avgDegree = (myDegree + otherDegree) / 2
+
+                // Boost increases with degree (hubs push harder)
+                // Square root to keep it reasonable
+                if (avgDegree > 3) {
+                  const hubBoost = 1.0 + Math.sqrt((avgDegree - 3) / 3) * 0.5
+                  repulsionStrength *= hubBoost
+                }
+              }
 
               // FORCE 2b: Leaf-Parent Magnetic Repulsion
               // Nodes with many leaves repel other nodes with leaves
