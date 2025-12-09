@@ -118,6 +118,7 @@ export function G6Graph() {
     repulsionRadius: 2000,            // How far repulsion works (spatial hash radius)
     hubEdgeStrength: 0.001,           // How strongly hub-to-hub edges pull (0=payout, 1=normal)
     hubRepulsionBoost: 0.5,           // Extra repulsion for high-degree nodes (0=none, 1=strong)
+    enableFinalAnimation: true,       // Play "clicking hubs" animation at end
   }
 
   // Physics parameters - adjustable by user
@@ -168,6 +169,11 @@ export function G6Graph() {
   const [showPhysicsPanel, setShowPhysicsPanel] = useState(false)
   const [showHighlightPanel, setShowHighlightPanel] = useState(false)
   const [topModal, setTopModal] = useState<'physics' | 'highlight' | null>(null)
+
+  // Final animation state - simulates clicking each hub to tighten children
+  const [finalAnimationActive, setFinalAnimationActive] = useState(false)
+  const [currentAnimatedHub, setCurrentAnimatedHub] = useState<string | null>(null)
+  const [hubAnimationProgress, setHubAnimationProgress] = useState(0)
 
   // PERFORMANCE: Mark layers dirty when visual settings change
   useEffect(() => {
@@ -531,6 +537,11 @@ export function G6Graph() {
     // Reset iteration counter and max iterations to restart physics simulation
     setIterationCount(0)
     setMaxIterations(500)
+
+    // Reset final animation state
+    setFinalAnimationActive(false)
+    setCurrentAnimatedHub(null)
+    setHubAnimationProgress(0)
   }, [nodes, edges])
 
   const handleContinuePhysics = useCallback(() => {
@@ -1144,6 +1155,89 @@ export function G6Graph() {
         // Phase 2 (250-350): Leaf retraction - pull leaves closer to parents
         // Phase 3 (350-450): Non-overlap enforcement - create clean spacing
         // Phase 4 (450-500): Final leaf snap - ultra-tight leaf positioning, creating hallways
+
+        // FINAL ANIMATION: After physics completes, animate "clicking" each hub
+        // This tightens leaf clusters around their hubs one by one
+        if (iterationCount >= maxIterations && physicsParams.enableFinalAnimation && !finalAnimationActive && !draggedNodeId) {
+          // Start final animation: get list of hubs sorted by degree (biggest first)
+          const hubs = nodes
+            .map(node => ({
+              id: node.id,
+              degree: (adjacency.get(node.id) || new Set()).size
+            }))
+            .filter(n => n.degree > 1) // Only non-leaf nodes
+            .sort((a, b) => b.degree - a.degree) // Biggest hubs first
+
+          if (hubs.length > 0 && !currentAnimatedHub) {
+            setFinalAnimationActive(true)
+            setCurrentAnimatedHub(hubs[0].id)
+            setHubAnimationProgress(0)
+          }
+        }
+
+        // Process final animation if active
+        if (finalAnimationActive && currentAnimatedHub) {
+          const updated = new Map<string, NodePosition>()
+          prev.forEach((pos, id) => updated.set(id, { ...pos }))
+
+          const hubPos = prev.get(currentAnimatedHub)
+          if (hubPos) {
+            const children = adjacency.get(currentAnimatedHub) || new Set()
+
+            // Strongly attract children to hub (simulating click)
+            children.forEach(childId => {
+              const childPos = prev.get(childId)
+              if (!childPos) return
+
+              const dx = hubPos.x - childPos.x
+              const dy = hubPos.y - childPos.y
+              const dist = Math.sqrt(dx * dx + dy * dy)
+
+              if (dist > 0) {
+                // Strong magnetic pull
+                const pullStrength = 0.3
+                const forceX = (dx / dist) * pullStrength * dist
+                const forceY = (dy / dist) * pullStrength * dist
+
+                updated.set(childId, {
+                  x: childPos.x + forceX,
+                  y: childPos.y + forceY,
+                  vx: forceX,
+                  vy: forceY
+                })
+              }
+            })
+
+            // Progress animation
+            const nextProgress = hubAnimationProgress + 1
+            if (nextProgress > 30) { // 30 frames per hub
+              // Move to next hub
+              const hubs = nodes
+                .map(node => ({
+                  id: node.id,
+                  degree: (adjacency.get(node.id) || new Set()).size
+                }))
+                .filter(n => n.degree > 1)
+                .sort((a, b) => b.degree - a.degree)
+
+              const currentIndex = hubs.findIndex(h => h.id === currentAnimatedHub)
+              if (currentIndex >= 0 && currentIndex < hubs.length - 1) {
+                // Next hub
+                setCurrentAnimatedHub(hubs[currentIndex + 1].id)
+                setHubAnimationProgress(0)
+              } else {
+                // Animation complete
+                setFinalAnimationActive(false)
+                setCurrentAnimatedHub(null)
+                setHubAnimationProgress(0)
+              }
+            } else {
+              setHubAnimationProgress(nextProgress)
+            }
+
+            return updated
+          }
+        }
 
         if (iterationCount >= maxIterations || !physicsEnabled) {
           // After all phases complete or if physics is disabled, only handle dragging
@@ -2949,7 +3043,42 @@ export function G6Graph() {
           viewportRef.current.applyToContext(overlayCtx)
         }
 
-        // TODO: Add selection highlights, hover effects, etc. here in the future
+        // FINAL ANIMATION INDICATOR: Show pulsing glow on current hub being "clicked"
+        if (finalAnimationActive && currentAnimatedHub) {
+          const hubPos = nodePositions.get(currentAnimatedHub)
+          if (hubPos) {
+            // Pulsing animation effect
+            const pulsePhase = (hubAnimationProgress / 30) * Math.PI * 2
+            const pulseSize = 80 + Math.sin(pulsePhase) * 20
+            const pulseOpacity = 0.3 + Math.sin(pulsePhase) * 0.2
+
+            // Outer glow
+            overlayCtx.beginPath()
+            overlayCtx.arc(hubPos.x, hubPos.y, pulseSize, 0, Math.PI * 2)
+            overlayCtx.fillStyle = `rgba(34, 211, 238, ${pulseOpacity * 0.1})`
+            overlayCtx.fill()
+
+            // Middle ring
+            overlayCtx.beginPath()
+            overlayCtx.arc(hubPos.x, hubPos.y, pulseSize * 0.7, 0, Math.PI * 2)
+            overlayCtx.strokeStyle = `rgba(34, 211, 238, ${pulseOpacity * 0.5})`
+            overlayCtx.lineWidth = 3
+            overlayCtx.stroke()
+
+            // Inner pulse
+            overlayCtx.beginPath()
+            overlayCtx.arc(hubPos.x, hubPos.y, pulseSize * 0.4, 0, Math.PI * 2)
+            overlayCtx.fillStyle = `rgba(34, 211, 238, ${pulseOpacity * 0.3})`
+            overlayCtx.fill()
+
+            // Draw "click" indicator text
+            overlayCtx.fillStyle = 'rgba(34, 211, 238, 0.9)'
+            overlayCtx.font = 'bold 14px sans-serif'
+            overlayCtx.textAlign = 'center'
+            overlayCtx.textBaseline = 'middle'
+            overlayCtx.fillText('Collecting...', hubPos.x, hubPos.y - pulseSize - 10)
+          }
+        }
 
         // Restore context
         overlayCtx.restore()
@@ -2983,6 +3112,15 @@ export function G6Graph() {
         // Dragging: edges and nodes need updates
         dirtyLayersRef.current.edges = true
         dirtyLayersRef.current.nodes = true
+      }
+
+      // Check if final animation is active
+      if (finalAnimationActive) {
+        hasMotion = true
+        // Animation running: edges, nodes, and overlay need updates
+        dirtyLayersRef.current.edges = true
+        dirtyLayersRef.current.nodes = true
+        dirtyLayersRef.current.overlay = true // Show pulse indicator
       }
 
       // Check if node positions changed
@@ -3597,6 +3735,26 @@ export function G6Graph() {
               />
               <p className="text-xs text-slate-500 mt-1">
                 Extra repulsion for high-degree nodes (0=none, 2=very strong)
+              </p>
+            </div>
+
+            {/* Enable Final Animation */}
+            <div>
+              <label className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                <span>Final Animation</span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={physicsParams.enableFinalAnimation}
+                    onChange={(e) => setPhysicsParams(prev => ({ ...prev, enableFinalAnimation: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-dark rounded-full peer peer-checked:bg-cyber-500 transition-colors"></div>
+                  <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-slate-400 rounded-full peer-checked:translate-x-5 peer-checked:bg-white transition-transform"></div>
+                </div>
+              </label>
+              <p className="text-xs text-slate-500 mt-1">
+                After physics, animate "clicking" each hub to tighten children
               </p>
             </div>
 
