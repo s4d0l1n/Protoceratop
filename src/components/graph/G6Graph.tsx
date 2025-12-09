@@ -1373,6 +1373,13 @@ export function G6Graph() {
               const MIN_ATTRACTION = 0.01
               const chaosAmount = averageRandomFactor * (physicsParams.nodeChaosFactor / 100) * MAX_ATTRACTION
               springStrength = Math.max(MIN_ATTRACTION, springStrength + chaosAmount)
+
+              // DEGREE-BASED SCALING: Weaken attraction for high-degree nodes (hubs)
+              // This allows hubs to spread out instead of being trapped by too many edges
+              // Scale by square root to avoid making it too weak
+              const avgDegree = (nodeDegree + neighborDegree) / 2
+              const degreeScale = 1.0 / Math.sqrt(Math.max(1, avgDegree / 3))
+              springStrength *= degreeScale
             }
 
             const dx = neighborPos.x - pos.x
