@@ -60,6 +60,11 @@ export function G6Graph() {
   const frameCountRef = useRef(0)
   const lastFpsUpdateRef = useRef(performance.now())
 
+  // Track if rendering is needed (motion detection)
+  const needsRenderRef = useRef(true)
+  const lastPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const lastMetaPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+
   // State to trigger re-render when viewport changes
   const [viewportState, setViewportState] = useState({ zoom: 1, pan: { x: 0, y: 0 }, rotation: 0 });
 
@@ -71,6 +76,11 @@ export function G6Graph() {
       setViewportState(viewportRef.current.getTransform());
     }
   }, []);
+
+  // PERFORMANCE: Restart rendering when viewport changes (zoom, pan, rotate)
+  useEffect(() => {
+    needsRenderRef.current = true
+  }, [viewportState]);
 
   // Default physics parameters
   const defaultPhysicsParams = {
@@ -90,6 +100,11 @@ export function G6Graph() {
   const [physicsParams, setPhysicsParams] = useState(defaultPhysicsParams)
   const [showPhysicsControls, setShowPhysicsControls] = useState(false)
   const [physicsEnabled, setPhysicsEnabled] = useState(true)
+
+  // PERFORMANCE: Restart rendering when physics are enabled or data changes
+  useEffect(() => {
+    needsRenderRef.current = true
+  }, [physicsEnabled, nodes, edges])
 
   // Node deviation factors - each node gets a random multiplier based on chaos factor
   const [nodeDeviationFactors, setNodeDeviationFactors] = useState<Map<string, number>>(new Map())
@@ -2772,8 +2787,53 @@ export function G6Graph() {
       // Restore context
       ctx.restore()
 
-      // Request next animation frame for continuous rendering (for animations)
-      animationRef.current = requestAnimationFrame(render)
+      // PERFORMANCE: Motion detection - only render if something changed
+      // Check if any positions changed since last frame
+      let hasMotion = false
+
+      // Check if physics is active
+      if (physicsEnabled && iterationCount < maxIterations) {
+        hasMotion = true
+      }
+
+      // Check if dragging
+      if (draggedNodeId) {
+        hasMotion = true
+      }
+
+      // Check if node positions changed
+      if (!hasMotion) {
+        nodePositions.forEach((pos, id) => {
+          const lastPos = lastPositionsRef.current.get(id)
+          if (!lastPos || Math.abs(pos.x - lastPos.x) > 0.1 || Math.abs(pos.y - lastPos.y) > 0.1) {
+            hasMotion = true
+          }
+        })
+      }
+
+      // Check if meta-node positions changed
+      if (!hasMotion) {
+        metaNodePositions.forEach((pos, id) => {
+          const lastPos = lastMetaPositionsRef.current.get(id)
+          if (!lastPos || Math.abs(pos.x - lastPos.x) > 0.1 || Math.abs(pos.y - lastPos.y) > 0.1) {
+            hasMotion = true
+          }
+        })
+      }
+
+      // Update last positions for next frame
+      lastPositionsRef.current = new Map(
+        Array.from(nodePositions.entries()).map(([id, pos]) => [id, { x: pos.x, y: pos.y }])
+      )
+      lastMetaPositionsRef.current = new Map(
+        Array.from(metaNodePositions.entries()).map(([id, pos]) => [id, { x: pos.x, y: pos.y }])
+      )
+
+      // Only request next frame if there's motion or we need to render
+      if (hasMotion || needsRenderRef.current) {
+        needsRenderRef.current = hasMotion // Update flag for next frame
+        animationRef.current = requestAnimationFrame(render)
+      }
     }
 
     // Start render loop
