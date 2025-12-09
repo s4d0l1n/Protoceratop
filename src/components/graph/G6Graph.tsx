@@ -1330,8 +1330,11 @@ export function G6Graph() {
             const neighborDegree = (adjacency.get(neighborId) || new Set()).size
             const neighborIsLeaf = neighborDegree === 1
 
-            // If either node is a leaf, use special spring
+            // Classify connection types:
+            // 1. Leaf connections: one or both nodes is a leaf (tight springs)
+            // 2. Hub connections: both are non-leaf (weak/no springs - just payout!)
             const isLeafConnection = isLeaf || neighborIsLeaf
+            const isHubConnection = !isLeaf && !neighborIsLeaf
 
             let idealLength: number
             let springStrength: number
@@ -1356,31 +1359,23 @@ export function G6Graph() {
                 idealLength = 5   // Extremely small - leaves try to get as close as possible
                 springStrength = 20.0 * leafMultiplier
               }
+            } else if (isHubConnection) {
+              // HUB-TO-HUB CONNECTIONS: Use VERY WEAK or NO spring force!
+              // This allows hubs to spread far apart - edges just "payout" as needed
+              // Think of it like a rope that doesn't pull back
+              idealLength = 500  // Doesn't matter much - spring is so weak
+
+              // ULTRA WEAK spring force - just barely keeps them from drifting to infinity
+              // Set to near-zero so repulsion dominates completely
+              springStrength = 0.001 * physicsParams.attractionStrength
+
+              // Result: Hubs push apart with full repulsion force,
+              // edges stretch to accommodate without fighting back!
             } else {
-              // Normal connections: standard spring parameters (scaled by user parameter)
-              // INCREASED from 120 to 250 for more dramatic island separation
-              idealLength = 250  // Structural connections want to be far apart
-
-              // Apply node chaos: add a percentage of MAX attraction based on each node's random factor
-              const nodeRandomFactor = nodeDeviationFactors.get(node.id) || 0
-              const neighborRandomFactor = nodeDeviationFactors.get(neighborId) || 0
-              const averageRandomFactor = (nodeRandomFactor + neighborRandomFactor) / 2
-
-              // Start with base spring strength
-              springStrength = 0.2 * physicsParams.attractionStrength
-
-              // Add chaos: ±(chaos% of MAX_ATTRACTION) based on random factor
-              const MAX_ATTRACTION = 2.0
-              const MIN_ATTRACTION = 0.01
-              const chaosAmount = averageRandomFactor * (physicsParams.nodeChaosFactor / 100) * MAX_ATTRACTION
-              springStrength = Math.max(MIN_ATTRACTION, springStrength + chaosAmount)
-
-              // DEGREE-BASED SCALING: Weaken attraction for high-degree nodes (hubs)
-              // This allows hubs to spread out instead of being trapped by too many edges
-              // Scale by square root to avoid making it too weak
-              const avgDegree = (nodeDegree + neighborDegree) / 2
-              const degreeScale = 1.0 / Math.sqrt(Math.max(1, avgDegree / 3))
-              springStrength *= degreeScale
+              // Fallback: one is degree-2+ non-leaf, other is degree-2+ non-leaf
+              // (shouldn't really happen with leaf classification, but just in case)
+              idealLength = 250
+              springStrength = 0.05 * physicsParams.attractionStrength
             }
 
             const dx = neighborPos.x - pos.x
