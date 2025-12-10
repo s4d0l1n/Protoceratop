@@ -3,44 +3,133 @@ import { persist } from 'zustand/middleware'
 import type { GraphNode, GraphEdge, MetaNode } from '@/types'
 
 /**
- * Graph data store
- * Manages nodes, edges, and meta-nodes for the visualization
- * Persists to localStorage to survive page refreshes
+ * Graph data store - Zustand store for graph state management
+ *
+ * Manages the complete graph representation including:
+ * - Individual nodes with attributes and metadata
+ * - Edges connecting nodes with relationship information
+ * - Meta-nodes (groups) for visual hierarchical organization
+ * - Physics parameters for force-directed layout simulation
+ *
+ * PERSISTENCE: All data is persisted to localStorage via Zustand's persist middleware,
+ * allowing graphs to survive page refreshes. The storage key is 'raptorgraph-graph-storage'.
+ *
+ * PERFORMANCE: This store intentionally avoids selectors to prevent unnecessary re-renders.
+ * Components should extract only needed data before passing to children.
+ *
+ * RELATIONSHIPS:
+ * - Nodes contain unique IDs, labels, attributes (from CSV), and tags
+ * - Edges reference source/target node IDs and can have templates applied
+ * - MetaNodes are virtual grouping nodes that contain child node IDs
+ * - When a node is removed, connected edges are automatically cleaned up
  */
 
 export interface PhysicsModifiers {
+  /** Ideal edge length for spring forces (not currently used in physics engine) */
   edgeLength: number
+  /** Spring strength multiplier (not currently used in physics engine) */
   springStrength: number
+  /** Gravity toward center of canvas (0-1 range) */
   centerGravity: number
 }
 
 interface GraphState {
-  // Graph data
+  // ========== GRAPH DATA STATE ==========
+  /**
+   * Array of all nodes in the graph
+   * Each node has unique ID, label, attributes from CSV, and metadata
+   */
   nodes: GraphNode[]
+
+  /**
+   * Array of all edges (connections) in the graph
+   * Each edge references source and target node IDs
+   */
   edges: GraphEdge[]
+
+  /**
+   * Virtual grouping nodes for hierarchical visualization
+   * MetaNodes can be nested and collapsed to hide children
+   */
   metaNodes: MetaNode[]
+
+  /**
+   * Physics simulation parameters (currently mostly for legacy support)
+   * Active physics configuration is in PhysicsPanel and component state
+   */
   physicsModifiers: PhysicsModifiers
 
-  // Actions
+  // ========== ACTIONS ==========
+
+  /** Update physics parameters (legacy - currently unused) */
   setPhysicsModifiers: (modifiers: Partial<PhysicsModifiers>) => void
+
+  /** Replace entire node array (used when loading new graph) */
   setNodes: (nodes: GraphNode[]) => void
+
+  /** Replace entire edge array (used when loading new graph) */
   setEdges: (edges: GraphEdge[]) => void
+
+  /** Add a single node to the graph */
   addNode: (node: GraphNode) => void
+
+  /** Add a single edge to the graph */
   addEdge: (edge: GraphEdge) => void
+
+  /** Update node properties (shallow merge with existing data) */
   updateNode: (nodeId: string, updates: Partial<GraphNode>) => void
+
+  /** Update edge properties (shallow merge with existing data) */
   updateEdge: (edgeId: string, updates: Partial<GraphEdge>) => void
+
+  /** Remove a node and all edges connected to it */
   removeNode: (nodeId: string) => void
+
+  /** Remove a single edge */
   removeEdge: (edgeId: string) => void
+
+  /** Clear entire graph (all nodes, edges, and meta-nodes) */
   clearGraph: () => void
+
+  /** Query: Get node by ID (returns undefined if not found) */
   getNodeById: (nodeId: string) => GraphNode | undefined
+
+  /** Query: Get edge by ID (returns undefined if not found) */
   getEdgeById: (edgeId: string) => GraphEdge | undefined
+
+  /**
+   * Query: Get all edges connected to a node
+   * Includes both incoming and outgoing edges
+   */
   getConnectedEdges: (nodeId: string) => GraphEdge[]
+
+  /**
+   * Merge nodes into existing graph with smart conflict resolution
+   * - Existing nodes: merge attributes, combine tags, promote stubs
+   * - New nodes: add directly to graph
+   * Used when loading additional CSV files
+   */
   mergeNodes: (nodes: GraphNode[]) => void
+
+  /**
+   * Merge edges into existing graph
+   * - Only adds edges with new IDs (avoids duplicates)
+   * Used when loading additional CSV files
+   */
   mergeEdges: (edges: GraphEdge[]) => void
 
-  // Meta-node actions
+  // ========== META-NODE ACTIONS ==========
+
+  /** Replace entire meta-node array (used during grouping operations) */
   setMetaNodes: (metaNodes: MetaNode[]) => void
+
+  /**
+   * Toggle collapse state of a meta-node
+   * When collapsed, children are hidden from visualization
+   */
   toggleMetaNodeCollapse: (metaNodeId: string) => void
+
+  /** Query: Get meta-node by ID (returns undefined if not found) */
   getMetaNodeById: (metaNodeId: string) => MetaNode | undefined
 }
 

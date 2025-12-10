@@ -12,6 +12,7 @@ import {
   Type,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import packageJson from '../../../package.json'
 
 interface SidebarItem {
   id: string
@@ -151,7 +152,7 @@ export function Sidebar({
       {/* Footer - Version */}
       {!collapsed && (
         <div className="absolute bottom-4 left-3 right-3 text-xs text-slate-600 text-center border-t border-dark pt-3">
-          <p>RaptorGraph v1.5.4</p>
+          <p>RaptorGraph v{packageJson.version}</p>
           <p className="mt-1">100% Offline</p>
         </div>
       )}
